@@ -3,6 +3,10 @@ import { Request, Response } from "express";
 import { responseLoopObj } from "../utils/responseLoop";
 import { closeOrderSchema, createOrderSchema } from "@repo/types/zodSchema";
 import prismaClient from "@repo/db/client";
+import {
+  logTradeFailure,
+  mapTradeErrorToUserMessage,
+} from "../utils/tradeErrorMessages";
 
 (async () => {
   await tradePusher.connect();
@@ -13,7 +17,8 @@ export const openTradeController = async (req: Request, res: Response) => {
 
   if (!validInput.success) {
     res.status(411).json({
-      message: "Invalid Input",
+      message:
+        "Invalid trade request. Please check asset, leverage, quantity, slippage, and price.",
     });
     return;
   }
@@ -31,12 +36,30 @@ export const openTradeController = async (req: Request, res: Response) => {
     });
 
     const response = await responseLoopObj.waitForResponse(reqId);
-    const { order, orderId } = JSON.parse(response!);
-    console.log(order, orderId);
-    res.json({ message: "trade executed", order, orderId });
+    if (response === undefined || response === null || typeof response !== "string") {
+      res
+        .status(411)
+        .json({ message: "We couldn’t confirm the trade. Please try again." });
+      return;
+    }
+    try {
+      const parsed = JSON.parse(response) as { order?: unknown; orderId?: string };
+      const { order, orderId } = parsed;
+      if (order === undefined || orderId === undefined) {
+        res
+          .status(411)
+          .json({ message: "We couldn’t confirm the trade. Please try again." });
+        return;
+      }
+      res.json({ message: "trade executed", order, orderId });
+    } catch {
+      res
+        .status(411)
+        .json({ message: "We couldn’t confirm the trade. Please try again." });
+    }
   } catch (err) {
-    console.log(err);
-    res.status(411).json({ message: `Trade not executed, ${err}`, err });
+    logTradeFailure("open", err);
+    res.status(411).json({ message: mapTradeErrorToUserMessage(err) });
   }
 };
 
@@ -57,7 +80,7 @@ export const fetchOpenTrades = async (req: Request, res: Response) => {
     return;
   } catch (err) {
     console.log(err);
-    res.status(411).json({ message: `Trades not fetched, ${err}`, err });
+    res.status(411).json({ message: "Trades not fetched" });
   }
 };
 
@@ -66,7 +89,7 @@ export const closeTradeController = async (req: Request, res: Response) => {
 
   if (!validInput.success) {
     res.status(411).json({
-      message: "Invalid Input",
+      message: "Invalid request. Please provide a valid trade id.",
     });
     return;
   }
@@ -88,8 +111,8 @@ export const closeTradeController = async (req: Request, res: Response) => {
     await responseLoopObj.waitForResponse(reqId);
     res.json({ message: "Trade Closed" });
   } catch (err) {
-    console.log(err);
-    res.status(411).json({ message: `Trade Not executed, ${err}` });
+    logTradeFailure("close", err);
+    res.status(411).json({ message: mapTradeErrorToUserMessage(err) });
   }
 };
 
@@ -105,9 +128,6 @@ export const fetchClosedTrades = async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.log(err);
-
-    res.status(411).json({
-      message: `Faced some error, ${err}`,
-    });
+    res.status(411).json({ message: "Failed to fetch closed trades" });
   }
 };

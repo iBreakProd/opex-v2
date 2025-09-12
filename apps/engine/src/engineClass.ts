@@ -22,6 +22,7 @@ import { TypeOfMongoClient } from "./dbClient";
 import { TypeOfRedisClient } from "@repo/redis/index";
 import { TypeOfPrismaClient } from "@repo/db/client";
 import z from "zod";
+import { fixed4ToInt, EngineSnapshotSchema } from "./utils";
 
 export class Engine {
   constructor(
@@ -111,6 +112,19 @@ export class Engine {
             await this.handleMessage(msg);
           } catch (err) {
             console.error(err);
+            const raw = entry?.message as { reqId?: string; type?: string } | undefined;
+            const reqId = raw?.reqId;
+            if (reqId) {
+              try {
+                await this.sendResponse({
+                  type: "request-failed",
+                  reqId,
+                  payload: { message: "Request failed" },
+                });
+              } catch (sendErr) {
+                console.error("Failed to send error response", sendErr);
+              }
+            }
           }
         }
 
@@ -138,7 +152,7 @@ export class Engine {
         await this.handleReplayMessage(msg);
         this.lastConsumedStreamItemId = entry.id;
       } catch (err) {
-        console.log("Replay borke", err);
+        console.error("Replay broke", err);
       }
     }
   }
@@ -210,13 +224,19 @@ export class Engine {
     const db = this.mongo.db(this.dbName);
     const collection = db.collection(this.collectionName);
     const doc = await collection.findOne({ id: "dump" });
-    if (!doc) return;
+    if (!doc || !doc.data) return;
 
-    this.currentPrice = doc.data.currentPrice;
-    this.openOrders = doc.data.openOrders;
-    this.userBalances = doc.data.userBalances;
-    this.lastConsumedStreamItemId = doc.data.lastConsumedStreamItemId;
-    this.lastSnapShotAt = doc.data.lastSnapShotAt;
+    const parsed = EngineSnapshotSchema.safeParse(doc.data);
+    if (!parsed.success) {
+      console.error("Invalid snapshot format, skipping load", parsed.error.message);
+      return;
+    }
+    const data = parsed.data;
+    this.currentPrice = data.currentPrice;
+    this.openOrders = data.openOrders as Record<string, OpenOrders[]>;
+    this.userBalances = data.userBalances;
+    this.lastConsumedStreamItemId = data.lastConsumedStreamItemId;
+    this.lastSnapShotAt = data.lastSnapShotAt;
   }
 
   private async persistSnapshot(): Promise<void> {
@@ -301,18 +321,10 @@ export class Engine {
             : order.openPrice - assetPrice;
 
         const pnl = (priceChange * order.leverage * order.quantity) / 10 ** 4;
-
-        const pnlStr = pnl.toFixed(4);
-        const pnlIntStr = pnlStr.split(".")[0] + pnlStr.split(".")[1]!;
-        const pnlInt = Number(pnlIntStr);
+        const pnlInt = fixed4ToInt(pnl);
 
         const lossTakingCapacity = order.margin / order.leverage;
-
-        const lossTakingCapacityStr = lossTakingCapacity.toFixed(4);
-        const lossTakingCapacityIntStr =
-          lossTakingCapacityStr.split(".")[0] +
-          lossTakingCapacityStr.split(".")[1]!;
-        const lossTakingCapacityInt = Number(lossTakingCapacityIntStr);
+        const lossTakingCapacityInt = fixed4ToInt(lossTakingCapacity);
 
         if (pnlInt < -0.9 * lossTakingCapacityInt) {
           const newBalChange = pnlInt + order.margin;
@@ -334,11 +346,16 @@ export class Engine {
             userId,
           };
 
-          await this.prisma.existingTrades.create({
-            data: {
-              ...closedOrder,
-            },
-          });
+          try {
+            await this.prisma.existingTrades.create({
+              data: {
+                ...closedOrder,
+              },
+            });
+          } catch (dbErr) {
+            console.error("Failed to persist liquidation", dbErr);
+            // In-memory state already updated; no response to send for price-update
+          }
         }
       }
     }
@@ -403,10 +420,7 @@ export class Engine {
     }
 
     const margin = (openPrice * tradeInfo.quantity) / 10 ** 4;
-
-    const marginStr = margin.toFixed(4);
-    const marginIntStr = marginStr.split(".")[0] + marginStr.split(".")[1]!;
-    const marginInt = Number(marginIntStr);
+    const marginInt = fixed4ToInt(margin);
 
     const currentBalance = this.userBalances[userId!]!.balance;
     const newBal = currentBalance! - marginInt;
@@ -514,10 +528,7 @@ export class Engine {
     }
 
     pnl = (priceChange * order.leverage * order.quantity) / 10 ** 4;
-
-    const pnlStr = pnl.toFixed(4);
-    const pnlIntStr = pnlStr.split(".")[0] + pnlStr.split(".")[1]!;
-    const pnlInt = Number(pnlIntStr);
+    const pnlInt = fixed4ToInt(pnl);
 
     const newBalChange = pnlInt + order.margin;
 
@@ -539,21 +550,30 @@ export class Engine {
       userId,
     };
 
-    await this.prisma.existingTrades.create({
-      data: {
-        ...closedOrder,
-      },
-    });
+    try {
+      await this.prisma.existingTrades.create({
+        data: {
+          ...closedOrder,
+        },
+      });
 
-    await this.prisma.users.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        balance: this.userBalances[userId].balance,
-        decimal: this.userBalances[userId].decimal,
-      },
-    });
+      await this.prisma.users.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          balance: this.userBalances[userId].balance,
+          decimal: this.userBalances[userId].decimal,
+        },
+      });
+    } catch (dbErr) {
+      console.error("Failed to persist trade close", dbErr);
+      return {
+        type: "trade-close-err",
+        reqId: msg.reqId,
+        payload: { message: "Failed to save trade" },
+      };
+    }
 
     return {
       type: "trade-close-ack",

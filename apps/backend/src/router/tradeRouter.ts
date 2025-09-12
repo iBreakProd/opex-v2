@@ -6,13 +6,14 @@ import {
   openTradeController,
 } from "../controller/tradeController";
 import { authMiddleware } from "../middleware/authMiddleware";
+import { asyncHandler } from "../middleware/errorHandler";
 
 const tradeRouter: Router = Router();
 
 tradeRouter.use(authMiddleware);
-tradeRouter.post("/open", openTradeController);
-tradeRouter.get("/open", fetchOpenTrades);
-tradeRouter.post("/close", closeTradeController);
-tradeRouter.get("/closed", fetchClosedTrades);
+tradeRouter.post("/open", asyncHandler(openTradeController));
+tradeRouter.get("/open", asyncHandler(fetchOpenTrades));
+tradeRouter.post("/close", asyncHandler(closeTradeController));
+tradeRouter.get("/closed", asyncHandler(fetchClosedTrades));
 
 export default tradeRouter;

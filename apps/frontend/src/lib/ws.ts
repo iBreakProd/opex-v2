@@ -28,7 +28,11 @@ class WSClient {
       try {
         const data = JSON.parse(evt.data) as QuotePayload;
         this.listeners.forEach((l) => l(data));
-      } catch {}
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn("[ws] Invalid message", err);
+        }
+      }
     };
     this.ws.onclose = () => {
       if (import.meta.env.DEV) console.log("[ws] close");

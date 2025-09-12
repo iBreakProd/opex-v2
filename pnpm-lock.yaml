@@ -233,7 +233,7 @@ importers:
         specifier: ^17.2.2
         version: 17.2.2
       prisma:
-        specifier: ^6.15.0
+        specifier: 6.15.0
         version: 6.15.0(typescript@5.9.2)
     devDependencies:
       '@repo/typescript-config':

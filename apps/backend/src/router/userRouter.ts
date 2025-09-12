@@ -4,6 +4,7 @@ import {
   emailGenController,
 } from "../controller/authController";
 import rateLimit from "express-rate-limit";
+import { asyncHandler } from "../middleware/errorHandler";
 
 const userRouter: Router = Router();
 
@@ -15,7 +16,7 @@ const limiter = rateLimit({
   ipv6Subnet: 56,
 });
 
-userRouter.route("/signup").post(limiter, emailGenController);
-userRouter.route("/signin/post").get(signinController);
+userRouter.route("/signup").post(limiter, asyncHandler(emailGenController));
+userRouter.route("/signin/post").get(asyncHandler(signinController));
 
 export default userRouter;

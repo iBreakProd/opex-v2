@@ -4,17 +4,22 @@ export const authBodySchema = z.object({
   email: z.email(),
 });
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export const createOrderSchema = z.object({
-  asset: z.string(),
+  asset: z.string().min(1),
   type: z.enum(["long", "short"]),
-  quantity: z.number(),
-  leverage: z.number(),
-  slippage: z.number(),
-  openPrice: z.number(),
-  decimal: z.number(),
+  quantity: z.number().positive().max(1e12),
+  leverage: z.number().int().min(1).max(100),
+  slippage: z.number().min(0).max(100),
+  openPrice: z.number().positive(),
+  decimal: z.number().int().min(0).max(8),
 });
 
-export const closeOrderSchema = z.object({ orderId: z.string() });
+export const closeOrderSchema = z.object({
+  orderId: z.string().min(1).max(64).regex(UUID_REGEX),
+});
 
 // Engine Message Schemas:
 

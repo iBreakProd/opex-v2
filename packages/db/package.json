@@ -12,8 +12,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "postbuild": "mkdir -p dist/generated && cp -R src/generated/* dist/generated/",
-    "db:generate": "pnpx prisma generate",
-    "db:migrate": "pnpx prisma migrate dev"
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*"
@@ -21,7 +21,7 @@
   "dependencies": {
     "@prisma/client": "6.15.0",
     "dotenv": "^17.2.2",
-    "prisma": "^6.15.0"
+    "prisma": "6.15.0"
   },
   "keywords": [],
   "author": "",

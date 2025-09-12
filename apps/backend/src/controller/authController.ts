@@ -45,7 +45,12 @@ export const emailGenController = async (req: Request, res: Response) => {
 
       user = dbRes;
     }
-    const jwtToken = jwt.sign(user!.id, process.env.JWT_SECRET!);
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      res.status(500).json({ message: "Server configuration error" });
+      return;
+    }
+    const jwtToken = jwt.sign(user!.id, secret);
 
     await httpPusher.xAdd("stream:app:info", "*", {
       type: "user-signup",
@@ -58,8 +63,9 @@ export const emailGenController = async (req: Request, res: Response) => {
     const { data, error } = await sendEmail(user!.email, jwtToken);
 
     if (error) {
+      console.log(error, "error");
       console.log("send email fails");
-      res.status(400).json({ error });
+      res.status(400).json({ message: "Could not send email" });
       return;
     }
 
@@ -87,9 +93,15 @@ export const signinController = async (req: Request, res: Response) => {
     return;
   }
 
-  const verifiedToken = jwt.verify(token, process.env.JWT_SECRET!) as string;
-
   try {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      res.status(500).json({ message: "Server configuration error" });
+      return;
+    }
+
+    const verifiedToken = jwt.verify(token, secret) as string;
+
     const reqId = Date.now().toString() + crypto.randomUUID();
 
     const userFound = await prismaClient.users.findFirst({
@@ -112,11 +124,26 @@ export const signinController = async (req: Request, res: Response) => {
 
     await responseLoopObj.waitForResponse(reqId);
 
-    res.cookie("jwt", token);
-    console.log(process.env.CORS_ORIGIN);
-    res.redirect(new URL("/#/trade", process.env.CORS_ORIGIN).toString());
+    const isProduction = process.env.NODE_ENV === "production";
+    res.cookie("jwt", token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: "lax",
+    });
+    const corsOrigin = process.env.CORS_ORIGIN;
+    if (!corsOrigin) {
+      res.status(500).json({ message: "Server configuration error" });
+      return;
+    }
+    res.redirect(new URL("/trade", corsOrigin).toString());
     return;
   } catch (err) {
+    if (err && typeof err === "object" && "name" in err && err.name === "JsonWebTokenError") {
+      res.status(401).json({
+        message: "Invalid or expired link",
+      });
+      return;
+    }
     res.status(400).json({
       message: "Could not sign in, request timed out",
     });

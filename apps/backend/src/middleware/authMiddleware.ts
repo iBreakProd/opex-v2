@@ -9,16 +9,37 @@ export const authMiddleware = (
 ) => {
   const jwtToken = req.cookies.jwt;
 
-  const decodedToken = jwt.verify(jwtToken, process.env.JWT_SECRET!) as string;
-
-  if (!decodedToken) {
+  if (!jwtToken) {
     res.status(401).json({
       message: "User not verified",
     });
     return;
   }
 
-  (req as unknown as { userId: string }).userId = decodedToken;
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    res.status(500).json({
+      message: "Server configuration error",
+    });
+    return;
+  }
 
-  next();
+  try {
+    const decodedToken = jwt.verify(jwtToken, secret) as string;
+
+    if (!decodedToken) {
+      res.status(401).json({
+        message: "User not verified",
+      });
+      return;
+    }
+
+    (req as unknown as { userId: string }).userId = decodedToken;
+
+    next();
+  } catch {
+    res.status(401).json({
+      message: "User not verified",
+    });
+  }
 };
