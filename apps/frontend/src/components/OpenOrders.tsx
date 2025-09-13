@@ -9,13 +9,11 @@ import { toDecimalNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 function appToDisplaySymbol(backendSymbol: string): string {
-  // BTC_USDC_PERP -> BTCUSDC
   return backendSymbol.replace("_USDC_PERP", "USDC").replaceAll("_", "");
 }
 
 export default function OpenOrders() {
-  // fetch on mount
-  useFetchOpenOrders();
+  const { isLoading, isFetching, isError } = useFetchOpenOrders();
   const { mutate: closeOrder, isPending: isClosing } = useCloseOrder();
   const orders = Object.values(useOpenOrdersStore((s) => s.ordersById));
   const quotes = useQuotesStore((s) => s.quotes);
@@ -67,7 +65,30 @@ export default function OpenOrders() {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {isLoading || isFetching ? (
+            <tr>
+              <td
+                className="px-3 py-3 text-center text-muted-foreground"
+                colSpan={8}
+              >
+                Loading open orders…
+              </td>
+            </tr>
+          ) : isError ? (
+            <tr>
+              <td
+                className="px-3 py-3 text-center text-red-600 text-xs"
+                colSpan={8}
+              >
+                Could not load open orders. Please try again.
+              </td>
+            </tr>
+          ) : null}
+
+          {!isLoading &&
+            !isFetching &&
+            !isError &&
+            rows.map((r) => (
             <tr key={r.id}>
               <td className="border-b px-2 py-2">{r.appSym}</td>
               <td className="border-b px-2 py-2 text-center capitalize">
@@ -100,7 +121,7 @@ export default function OpenOrders() {
               </td>
             </tr>
           ))}
-          {rows.length === 0 ? (
+          {!isLoading && !isFetching && !isError && rows.length === 0 ? (
             <tr>
               <td
                 className="px-3 py-3 text-center text-muted-foreground"

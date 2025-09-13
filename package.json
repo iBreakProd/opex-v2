@@ -6,6 +6,7 @@
     "dev": "turbo run dev",
     "start": "turbo run start",
     "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
     "db:generate": "cd ./packages/db && pnpm run db:generate && cd ../..",
@@ -23,5 +24,11 @@
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "drizzle-kit": "^0.31.9",
+    "drizzle-orm": "^0.45.1",
+    "pg": "^8.18.0"
   }
 }

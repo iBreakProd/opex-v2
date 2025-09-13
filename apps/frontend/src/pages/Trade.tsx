@@ -21,12 +21,10 @@ export default function Trade() {
   const [showLeft, setShowLeft] = useState(true);
   const [leftWidth, setLeftWidth] = useState(25);
   const rightWidth = 25;
-
-  // Resizer state
   const mainRef = useRef<HTMLDivElement | null>(null);
   const [isResizingLeft, setIsResizingLeft] = useState(false);
 
-  const [chartRatio, setChartRatio] = useState(0.6); // 0..1
+  const [chartRatio, setChartRatio] = useState(0.6);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [isResizingChart, setIsResizingChart] = useState(false);
 
@@ -34,18 +32,16 @@ export default function Trade() {
     function onMouseMove(e: MouseEvent) {
       if (isResizingLeft && mainRef.current) {
         const rect = mainRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left; // px from left of grid
+        const x = e.clientX - rect.left;
         const total = rect.width;
-        // Clamp left width between 15% and 40%
         const next = Math.max(15, Math.min(40, (x / total) * 100));
         setLeftWidth(next);
       }
       if (isResizingChart && contentRef.current) {
         const rect = contentRef.current.getBoundingClientRect();
-        const y = e.clientY - rect.top; // px from top of middle content
+        const y = e.clientY - rect.top;
         const total = rect.height;
         const pos = Math.max(0, Math.min(1, y / total));
-        // Dragging up decreases chart (ratio goes down); dragging down increases chart
         const ratio = Math.max(0.1, Math.min(0.9, pos));
         setChartRatio(ratio);
       }

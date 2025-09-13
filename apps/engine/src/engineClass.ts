@@ -20,7 +20,8 @@ import {
 import { randomUUID } from "crypto";
 import { TypeOfMongoClient } from "./dbClient";
 import { TypeOfRedisClient } from "@repo/redis/index";
-import { TypeOfPrismaClient } from "@repo/db/client";
+import { db, schema } from "@repo/db/client";
+import { eq } from "drizzle-orm";
 import z from "zod";
 import { fixed4ToInt, EngineSnapshotSchema } from "./utils";
 
@@ -28,7 +29,6 @@ export class Engine {
   constructor(
     private readonly enginePuller: TypeOfRedisClient,
     private readonly enginePusher: TypeOfRedisClient,
-    private readonly prisma: TypeOfPrismaClient,
     private readonly mongo: TypeOfMongoClient
   ) {}
 
@@ -347,14 +347,9 @@ export class Engine {
           };
 
           try {
-            await this.prisma.existingTrades.create({
-              data: {
-                ...closedOrder,
-              },
-            });
+            await db.insert(schema.existingTrades).values(closedOrder);
           } catch (dbErr) {
             console.error("Failed to persist liquidation", dbErr);
-            // In-memory state already updated; no response to send for price-update
           }
         }
       }
@@ -489,7 +484,6 @@ export class Engine {
 
     this.openOrders[userId]?.forEach((o) => {
       if (o.id === orderId) {
-        // console.log(o);
         order = o;
       }
     });
@@ -551,23 +545,32 @@ export class Engine {
     };
 
     try {
-      await this.prisma.existingTrades.create({
-        data: {
-          ...closedOrder,
-        },
-      });
+      await db.insert(schema.existingTrades).values(closedOrder);
 
-      await this.prisma.users.update({
-        where: {
-          id: userId,
-        },
-        data: {
+      await db
+        .update(schema.users)
+        .set({
           balance: this.userBalances[userId].balance,
           decimal: this.userBalances[userId].decimal,
-        },
-      });
+        })
+        .where(eq(schema.users.id as any, userId) as any);
     } catch (dbErr) {
+      const raw =
+        dbErr instanceof Error ? dbErr.message : String(dbErr ?? "");
       console.error("Failed to persist trade close", dbErr);
+
+      if (raw.includes("Unique constraint failed on the fields: (`id`)")) {
+        return {
+          type: "trade-close-ack",
+          reqId: msg.reqId,
+          payload: {
+            message: "Order Closed",
+            orderId,
+            userBal: this.userBalances[userId],
+          },
+        };
+      }
+
       return {
         type: "trade-close-err",
         reqId: msg.reqId,

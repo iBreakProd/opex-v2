@@ -1,16 +1,48 @@
-import { tradePusher } from "@repo/redis/queue";
+import { tradePusher, httpPusher } from "@repo/redis/queue";
 import { Request, Response } from "express";
 import { responseLoopObj } from "../utils/responseLoop";
 import { closeOrderSchema, createOrderSchema } from "@repo/types/zodSchema";
-import prismaClient from "@repo/db/client";
+import { db, schema } from "@repo/db/client";
+import { eq } from "drizzle-orm";
 import {
   logTradeFailure,
   mapTradeErrorToUserMessage,
 } from "../utils/tradeErrorMessages";
 
 (async () => {
-  await tradePusher.connect();
+  try {
+    if (!tradePusher.isOpen) {
+      await tradePusher.connect();
+    }
+    if (!httpPusher.isOpen) {
+      await httpPusher.connect();
+    }
+  } catch (err) {
+    console.error("[redis] trade/http pusher connect error", err);
+  }
 })();
+
+async function fetchOpenOrders(userId: string) {
+  const reqId = Date.now().toString() + crypto.randomUUID();
+  await tradePusher.xAdd("stream:app:info", "*", {
+    type: "open-trades-fetch",
+    userId,
+    reqId,
+  });
+  const trades = await responseLoopObj.waitForResponse(reqId);
+  return trades;
+}
+
+async function fetchUsdBalance(userId: string) {
+  const reqId = Date.now().toString() + crypto.randomUUID();
+  await httpPusher.xAdd("stream:app:info", "*", {
+    type: "get-user-bal",
+    reqId,
+    userId,
+  });
+  const data = await responseLoopObj.waitForResponse(reqId);
+  return data;
+}
 
 export const openTradeController = async (req: Request, res: Response) => {
   const validInput = createOrderSchema.safeParse(req.body);
@@ -51,7 +83,21 @@ export const openTradeController = async (req: Request, res: Response) => {
           .json({ message: "We couldn’t confirm the trade. Please try again." });
         return;
       }
-      res.json({ message: "trade executed", order, orderId });
+
+      let openOrders: unknown = undefined;
+      let usdBalance: unknown = undefined;
+      try {
+        const [ordersResult, balResult] = await Promise.all([
+          fetchOpenOrders(userId),
+          fetchUsdBalance(userId),
+        ]);
+        openOrders = ordersResult;
+        usdBalance = balResult;
+      } catch (stateErr) {
+        logTradeFailure("open.state-refresh", stateErr);
+      }
+
+      res.json({ message: "trade executed", order, orderId, openOrders, usdBalance });
     } catch {
       res
         .status(411)
@@ -64,7 +110,6 @@ export const openTradeController = async (req: Request, res: Response) => {
 };
 
 export const fetchOpenTrades = async (req: Request, res: Response) => {
-  console.log("fetching open trades");
   const userId = (req as unknown as { userId: string }).userId;
   const reqId = Date.now().toString() + crypto.randomUUID();
 
@@ -79,7 +124,6 @@ export const fetchOpenTrades = async (req: Request, res: Response) => {
     res.json({ message: "trades fetched", trades });
     return;
   } catch (err) {
-    console.log(err);
     res.status(411).json({ message: "Trades not fetched" });
   }
 };
@@ -98,8 +142,6 @@ export const closeTradeController = async (req: Request, res: Response) => {
   const reqId = Date.now().toString() + crypto.randomUUID();
   const orderId = validInput.data.orderId;
 
-  console.log("sending to engine");
-
   try {
     await tradePusher.xAdd("stream:app:info", "*", {
       type: "trade-close",
@@ -108,9 +150,59 @@ export const closeTradeController = async (req: Request, res: Response) => {
       orderId,
     });
 
-    await responseLoopObj.waitForResponse(reqId);
-    res.json({ message: "Trade Closed" });
+    const response = await responseLoopObj.waitForResponse(reqId);
+
+    let engineUsdBalance: unknown = undefined;
+    if (typeof response === "string") {
+      try {
+        const parsed = JSON.parse(response) as {
+          userBal?: unknown;
+          orderId?: string;
+        };
+        engineUsdBalance = parsed.userBal;
+      } catch {
+        engineUsdBalance = undefined;
+      }
+    }
+
+    let openOrders: unknown = undefined;
+    let usdBalance: unknown = engineUsdBalance;
+    try {
+      const ordersResult = await fetchOpenOrders(userId);
+      openOrders = ordersResult;
+      if (!usdBalance) {
+        usdBalance = await fetchUsdBalance(userId);
+      }
+    } catch (stateErr) {
+      logTradeFailure("close.state-refresh", stateErr);
+    }
+
+    res.json({ message: "Trade Closed", openOrders, usdBalance });
   } catch (err) {
+    const raw =
+      typeof err === "string"
+        ? err
+        : err instanceof Error
+        ? err.message
+        : "";
+    if (raw.toLowerCase().includes("order does not exists")) {
+      let openOrders: unknown = undefined;
+      let usdBalance: unknown = undefined;
+      try {
+        const [ordersResult, balResult] = await Promise.all([
+          fetchOpenOrders(userId),
+          fetchUsdBalance(userId),
+        ]);
+        openOrders = ordersResult;
+        usdBalance = balResult;
+      } catch (stateErr) {
+        logTradeFailure("close.idempotent-refresh", stateErr);
+      }
+
+      res.json({ message: "Trade already closed", openOrders, usdBalance });
+      return;
+    }
+
     logTradeFailure("close", err);
     res.status(411).json({ message: mapTradeErrorToUserMessage(err) });
   }
@@ -119,9 +211,10 @@ export const closeTradeController = async (req: Request, res: Response) => {
 export const fetchClosedTrades = async (req: Request, res: Response) => {
   const userId = (req as unknown as { userId: string }).userId;
   try {
-    const trades = await prismaClient.existingTrades.findMany({
-      where: { userId },
-    });
+    const trades = await db
+      .select()
+      .from(schema.existingTrades)
+      .where(eq(schema.existingTrades.userId as any, userId) as any);
 
     res.json({
       trades,

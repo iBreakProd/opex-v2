@@ -4,7 +4,8 @@ import jwt from "jsonwebtoken";
 import { sendEmail } from "../utils/sendEmail";
 import { httpPusher } from "@repo/redis/queue";
 import { responseLoopObj } from "../utils/responseLoop";
-import prismaClient from "@repo/db/client";
+import { db, schema } from "@repo/db/client";
+import { eq } from "drizzle-orm";
 import "dotenv/config";
 
 (async () => {
@@ -26,24 +27,25 @@ export const emailGenController = async (req: Request, res: Response) => {
   try {
     const reqId = Date.now().toString() + crypto.randomUUID();
 
-    const userFound = await prismaClient.users.findFirst({
-      where: {
-        email,
-      },
-    });
+    const [userFound] = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email as any, email) as any)
+      .limit(1);
 
     let user = userFound;
 
     if (!userFound) {
-      const dbRes = await prismaClient.users.create({
-        data: {
+      const [created] = await db
+        .insert(schema.users)
+        .values({
           email: email,
           balance: 50000000,
           decimal: 4,
-        },
-      });
+        })
+        .returning();
 
-      user = dbRes;
+      user = created;
     }
     const secret = process.env.JWT_SECRET;
     if (!secret) {
@@ -104,11 +106,11 @@ export const signinController = async (req: Request, res: Response) => {
 
     const reqId = Date.now().toString() + crypto.randomUUID();
 
-    const userFound = await prismaClient.users.findFirst({
-      where: {
-        id: verifiedToken,
-      },
-    });
+    const [userFound] = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id as any, verifiedToken) as any)
+      .limit(1);
 
     if (!userFound?.email) {
       res.status(401).json({

@@ -9,16 +9,30 @@ import {
   type UTCTimestamp,
   type BusinessDay,
   type Time,
+  type CandlestickData,
+  type WhitespaceData,
 } from "lightweight-charts";
 import { useKlines, fetchKlinesBefore } from "@/lib/klines";
 import { useQuotesStore } from "@/lib/quotesStore";
+
+type SeriesPoint = CandlestickData<Time> | WhitespaceData<Time>;
+
+type CandlestickSeriesApi = ISeriesApi<"Candlestick"> & {
+  dataByIndex?(index: number): SeriesPoint | null | undefined;
+  data?(): readonly SeriesPoint[];
+};
+
+function isCandlestickPoint(
+  point: SeriesPoint
+): point is CandlestickData<Time> {
+  return (point as CandlestickData<Time>).open !== undefined;
+}
 
 type Props = {
   symbol: string;
 };
 
 export default function CandlesChart({ symbol }: Props) {
-  // ensure subscription/unsubscription lifecycle
   useCandlesFeed();
   const timeframe = useCandlesStore((s) => s.timeframe);
   const selected = useCandlesStore((s) => {
@@ -28,10 +42,9 @@ export default function CandlesChart({ symbol }: Props) {
   const EMPTY: ReadonlyArray<Candle> = [] as const;
   const candles = (selected ?? EMPTY) as Candle[];
 
-  // lightweight-charts setup
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const seriesRef = useRef<CandlestickSeriesApi | null>(null);
 
   function getIsDark() {
     if (typeof document === "undefined") return false;
@@ -56,7 +69,6 @@ export default function CandlesChart({ symbol }: Props) {
     return 0;
   }
 
-  // fetch historical klines (seed data)
   const seedInterval = timeframe;
   const { data: klines } = useKlines(symbol, seedInterval, 100);
 
@@ -109,7 +121,6 @@ export default function CandlesChart({ symbol }: Props) {
     };
   }, [symbol, timeframe]);
 
-  // seed klines when ready
   useEffect(() => {
     if (!seriesRef.current || !klines?.length) return;
     const last100 = klines.slice(-100);
@@ -124,7 +135,6 @@ export default function CandlesChart({ symbol }: Props) {
     );
   }, [klines]);
 
-  // Backfill older klines when scrolling left
   useEffect(() => {
     if (!chartRef.current || !seriesRef.current) return;
     const chart = chartRef.current;
@@ -135,12 +145,11 @@ export default function CandlesChart({ symbol }: Props) {
       const range = chart.timeScale().getVisibleRange();
       const logical = chart.timeScale().getVisibleLogicalRange();
       if (!range || !logical) return;
-      // When scrolled near the left edge, load more
       if (logical.from < 5) {
         loading = true;
         const first =
-          (seriesRef.current as any).dataByIndex?.(0) ??
-          (seriesRef.current as any).data?.()[0];
+          seriesRef.current?.dataByIndex?.(0) ??
+          seriesRef.current?.data?.()[0];
         const baseTime: Time = (first?.time ?? range.from) as Time;
         const firstTimeSec = toUnixSec(baseTime);
         const endTimeSec = Math.max(0, firstTimeSec - 1);
@@ -152,7 +161,6 @@ export default function CandlesChart({ symbol }: Props) {
             100
           );
           if (older && older.length) {
-            // prepend in chronological order
             const mapped = older.map((k) => ({
               time: k.time as UTCTimestamp,
               open: k.open,
@@ -160,9 +168,20 @@ export default function CandlesChart({ symbol }: Props) {
               low: k.low,
               close: k.close,
             }));
-            // get existing data
-            const current = (seriesRef.current as any).data() as any[];
-            seriesRef.current!.setData([...mapped, ...current]);
+            const current =
+              seriesRef.current?.data?.().filter(isCandlestickPoint) ?? [];
+            const byTime = new Map<number, CandlestickData<Time>>();
+            for (const p of [...mapped, ...current]) {
+              const t =
+                typeof p.time === "number"
+                  ? (p.time as number)
+                  : 0;
+              byTime.set(t, p as CandlestickData<Time>);
+            }
+            const deduped = Array.from(byTime.entries())
+              .sort(([t1], [t2]) => t1 - t2)
+              .map(([, p]) => p);
+            seriesRef.current!.setData(deduped);
           }
         } finally {
           loading = false;
@@ -176,7 +195,6 @@ export default function CandlesChart({ symbol }: Props) {
     };
   }, [symbol, seedInterval]);
 
-  // stream latest in-memory candle as updates
   useEffect(() => {
     if (!seriesRef.current || !candles.length) return;
     const last = candles[candles.length - 1]!;
@@ -189,13 +207,11 @@ export default function CandlesChart({ symbol }: Props) {
     });
   }, [candles]);
 
-  // direct live update on each WS tick: adjust the ongoing candle for current timeframe
   const live = useQuotesStore((s) => s.quotes[symbol]);
   useEffect(() => {
     if (!seriesRef.current || !live) return;
     const price =
       (live.ask_price + live.bid_price) / 2 / Math.pow(10, live.decimal);
-    // determine current bucket for timeframe
     const nowMs = Date.now();
     const bucketMs = (() => {
       switch (timeframe) {
@@ -211,8 +227,6 @@ export default function CandlesChart({ symbol }: Props) {
           return Math.floor(nowMs / 86_400_000) * 86_400_000;
       }
     })();
-
-    // find last bar from current candles state
     const last = candles[candles.length - 1];
     if (last && last.t === bucketMs) {
       const nextBar = {
@@ -224,7 +238,6 @@ export default function CandlesChart({ symbol }: Props) {
       };
       seriesRef.current.update(nextBar);
     } else if (bucketMs) {
-      // start a new bar if none exists for this bucket yet
       seriesRef.current.update({
         time: Math.floor(bucketMs / 1000) as UTCTimestamp,
         open: price,

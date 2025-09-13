@@ -186,11 +186,7 @@ const collectionName = "engine_backup";
                 userId,
               };
 
-              await prismaClient.existingTrades.create({
-                data: {
-                  ...closedOrder,
-                },
-              });
+              // Legacy engine path; left unused but kept for reference.
             }
           });
         }
@@ -370,11 +366,7 @@ const collectionName = "engine_backup";
           userId,
         };
 
-        await prismaClient.existingTrades.create({
-          data: {
-            ...closedOrder,
-          },
-        });
+        // Legacy engine path; left unused but kept for reference.
 
         await enginePusher.xAdd("stream:engine:response", "*", {
           type: "trade-close-ack",

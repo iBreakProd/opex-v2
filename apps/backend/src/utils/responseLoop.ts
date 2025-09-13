@@ -60,9 +60,7 @@ export class ResponseLoop {
                 ? (JSON.parse(raw as string) as { message?: string })
                 : null;
               if (parsed?.message) message = parsed.message;
-            } catch {
-              // use default message
-            }
+            } catch {}
             this.safeSettle(gotId, (e) => e.reject(message));
             break;
           }
@@ -170,7 +168,6 @@ export class ResponseLoop {
         }
       } catch (err) {
         console.error("ResponseLoop error", err);
-        // continue loop
       }
     }
   }

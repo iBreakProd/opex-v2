@@ -18,13 +18,11 @@ export const getAssetBalanceController = async (
 
     const data = await responseLoopObj.waitForResponse(reqId);
 
-    console.log(data);
     res.json({
       message: "Fetched asset balance successfully",
       data,
     });
   } catch (err) {
-    console.log(err);
     res.status(411).json({ message: "Could not get the asset balance" });
   }
 };
@@ -42,13 +40,11 @@ export const getUsdBalanceController = async (req: Request, res: Response) => {
 
     const data = await responseLoopObj.waitForResponse(reqId);
 
-    console.log(data);
     res.json({
       message: "Fetched usd balance successfully",
       data,
     });
   } catch (err) {
-    console.log(err);
     res.status(411).json({ message: "Could not get the USD balance" });
   }
 };

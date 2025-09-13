@@ -13,7 +13,6 @@ export default function ThemeToggle() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
     localStorage.setItem("theme", isDark ? "dark" : "light");
-    // notify listeners (e.g., charts) to update theme
     window.dispatchEvent(new Event("themechange"));
   }, [isDark]);
 

@@ -6,10 +6,10 @@ export type OpenOrder = {
   id: string;
   type: "long" | "short";
   leverage: number;
-  asset: string; // backend symbol like BTC_USDC_PERP
+  asset: string;
   margin: number;
   quantity: number;
-  openPrice: number; // integer per decimal
+  openPrice: number;
 };
 
 type OpenOrdersState = {
@@ -39,7 +39,6 @@ export function useFetchOpenOrders() {
     queryKey: ["openOrders"],
     queryFn: async () => {
       const { data } = await api.get("/trade/open");
-      // backend returns { message, trades: OpenOrder[] }
       const orders = (data?.trades ??
         data?.orders ??
         data ??
@@ -47,27 +46,40 @@ export function useFetchOpenOrders() {
       setAll(orders);
       return orders;
     },
-    refetchInterval: 2_500,
     staleTime: 5_000,
   });
 }
 
 export function useCloseOrder() {
-  const remove = useOpenOrdersStore((s) => s.remove);
+  const setAll = useOpenOrdersStore((s) => s.setAll);
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (orderId: string) => {
-      await api.post("/trade/close", { orderId });
-      return orderId;
+  return useMutation<
+    {
+      message: string;
+      openOrders?: OpenOrder[];
+      usdBalance?: { balance: number; decimal: number };
     },
-    onSuccess: (orderId) => {
-      remove(orderId);
-      qc.invalidateQueries({ queryKey: ["openOrders"] });
-      // Refetch available balance; engine may update it asynchronously
-      qc.refetchQueries({ queryKey: ["balance.usd"], exact: true });
-      setTimeout(() => {
-        qc.refetchQueries({ queryKey: ["balance.usd"], exact: true });
-      }, 600);
+    unknown,
+    string
+  >({
+    mutationFn: async (orderId: string) => {
+      const { data } = await api.post("/trade/close", { orderId });
+      return data as {
+        message: string;
+        openOrders?: OpenOrder[];
+        usdBalance?: { balance: number; decimal: number };
+      };
+    },
+    onSuccess: (data, orderId) => {
+      if (data?.openOrders) {
+        setAll(data.openOrders);
+      } else {
+        const remove = useOpenOrdersStore.getState().remove;
+        remove(orderId);
+      }
+      if (data?.usdBalance) {
+        qc.setQueryData(["balance.usd"], data.usdBalance);
+      }
     },
   });
 }

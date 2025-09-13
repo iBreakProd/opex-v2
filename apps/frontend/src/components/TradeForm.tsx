@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import { useQuotesStore } from "@/lib/quotesStore";
 import { appToBackendSymbol } from "@/lib/symbols";
 import { useOpenOrdersStore, type OpenOrder } from "@/lib/openOrdersStore";
+import type { UsdBalance } from "@/lib/balance";
 import { toDecimalNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -15,7 +16,7 @@ export default function TradeForm() {
   const [leverage, setLeverage] = useState(1);
   const [slippage, setSlippage] = useState(0.1);
 
-  const openPrice = q ? (type === "long" ? q.ask_price : q.bid_price) : 0; // integer price from ws (scaled)
+  const openPrice = q ? (type === "long" ? q.ask_price : q.bid_price) : 0;
   const decimal = q ? q.decimal : 4;
 
   const upsert = useOpenOrdersStore((s) => s.upsert);
@@ -33,19 +34,27 @@ export default function TradeForm() {
         decimal,
       };
       const { data } = await api.post("/trade/open", payload);
-      return data;
+      return data as {
+        message: string;
+        order?: OpenOrder;
+        orderId?: string;
+        openOrders?: OpenOrder[];
+        usdBalance?: UsdBalance;
+      };
     },
-    onSuccess: (data: { order: OpenOrder }) => {
+    onSuccess: (data) => {
       if (data?.order) {
         upsert(data.order);
       }
-      // Refetch balance and open orders immediately after open
-      qc.invalidateQueries({ queryKey: ["balance.usd"] });
-      qc.invalidateQueries({ queryKey: ["openOrders"] });
+      if (data?.openOrders) {
+        const setAll = useOpenOrdersStore.getState().setAll;
+        setAll(data.openOrders);
+      }
+      if (data?.usdBalance) {
+        qc.setQueryData<UsdBalance>(["balance.usd"], data.usdBalance);
+      }
     },
   });
-
-  console.log(error);
 
   return (
     <form

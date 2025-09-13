@@ -8,12 +8,10 @@ export function useUsdBalance() {
     queryKey: ["balance.usd"],
     queryFn: async () => {
       const { data } = await api.get("/balance/usd");
-      // Backend: { message, data: { balance, decimal } }
       const bal = Number(data?.data?.balance ?? 0);
       const dec = Number(data?.data?.decimal ?? 4);
       return { balance: bal, decimal: dec };
     },
     staleTime: 2_500,
-    refetchInterval: 2_500,
   });
 }
