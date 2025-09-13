@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1771379544734,
+      "tag": "0000_old_chronomancer",
+      "breakpoints": true
+    }
+  ]
+}

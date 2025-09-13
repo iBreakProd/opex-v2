@@ -1,10 +1,6 @@
 import z from "zod";
 import type { FilteredDataType } from "@repo/types/types";
 
-/**
- * Parses a fixed-point string "X.XXXX" to an integer (e.g. "12.3400" -> 123400).
- * Safe against missing decimal part or NaN.
- */
 export function fixed4ToInt(value: number): number {
   const str = Number.isFinite(value) ? value.toFixed(4) : "0.0000";
   const parts = str.split(".");

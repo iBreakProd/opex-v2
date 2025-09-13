@@ -21,9 +21,10 @@ import { randomUUID } from "crypto";
 import { TypeOfMongoClient } from "./dbClient";
 import { TypeOfRedisClient } from "@repo/redis/index";
 import { db, schema } from "@repo/db/client";
-import { eq } from "drizzle-orm";
+;
 import z from "zod";
 import { fixed4ToInt, EngineSnapshotSchema } from "./utils";
+import { eq } from "drizzle-orm";
 
 export class Engine {
   constructor(
@@ -557,9 +558,19 @@ export class Engine {
     } catch (dbErr) {
       const raw =
         dbErr instanceof Error ? dbErr.message : String(dbErr ?? "");
+      const code =
+        dbErr &&
+        typeof dbErr === "object" &&
+        "code" in dbErr &&
+        typeof (dbErr as { code: string }).code === "string"
+          ? (dbErr as { code: string }).code
+          : "";
       console.error("Failed to persist trade close", dbErr);
 
-      if (raw.includes("Unique constraint failed on the fields: (`id`)")) {
+      const isDuplicateKey =
+        code === "23505" ||
+        /unique|duplicate/i.test(raw);
+      if (isDuplicateKey) {
         return {
           type: "trade-close-ack",
           reqId: msg.reqId,

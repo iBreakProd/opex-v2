@@ -1,4 +1,3 @@
-import prismaClient from "@repo/db/client";
 import { enginePuller, enginePusher } from "@repo/redis/queue";
 import {
   AssetBalance,
