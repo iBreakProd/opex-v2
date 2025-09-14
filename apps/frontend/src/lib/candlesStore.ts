@@ -6,7 +6,7 @@ import { wsToAppSymbol } from "@/lib/symbols";
 export type Timeframe = "1m" | "5m" | "15m" | "1h" | "1d";
 
 export type Candle = {
-  t: number; // bucket start time (ms)
+  t: number;
   o: number;
   h: number;
   l: number;

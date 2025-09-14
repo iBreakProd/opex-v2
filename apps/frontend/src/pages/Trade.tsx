@@ -123,7 +123,6 @@ export default function Trade() {
             : `1fr ${rightWidth}%`,
         }}
       >
-        {/* Left: Live Prices */}
         {showLeft ? (
           <aside className="rounded-lg border p-2">
             <h4 className="mb-1 mt-0 text-sm font-semibold">Live Prices</h4>
@@ -137,7 +136,6 @@ export default function Trade() {
           />
         ) : null}
 
-        {/* Middle: Chart and Open Orders with horizontal resizer */}
         <section className="flex min-h-[70vh] flex-col gap-2 rounded-lg border p-2">
           <div className="flex items-center gap-2">
             <div className="flex gap-1.5">
@@ -191,7 +189,6 @@ export default function Trade() {
           </div>
         </section>
 
-        {/* Right */}
         <aside className="rounded-lg border p-2 mr-8">
           <h4 className="mb-1 mt-0 text-sm font-semibold">Open Trade</h4>
           <TradeForm />

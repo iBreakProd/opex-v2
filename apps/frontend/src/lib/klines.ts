@@ -8,7 +8,7 @@ const KLINES_BASE =
 export type Interval = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 
 export type Kline = {
-  time: number; // seconds
+  time: number;
   open: number;
   high: number;
   low: number;
@@ -16,7 +16,6 @@ export type Kline = {
 };
 
 export function mapToBinanceSymbol(symbol: string): string {
-  // Convert internal USDC markets to Binance USDT markets
   if (symbol.endsWith("USDC")) return symbol.replace("USDC", "USDT");
   return symbol;
 }
@@ -51,7 +50,6 @@ export function useKlines(symbol: string, interval: Interval, limit = 100) {
         console.log("[klines] request", { url });
       }
       const { data } = await axios.get(url, { withCredentials: false });
-      // Binance returns: [ openTime(ms), open, high, low, close, ... ]
       const out = (data as unknown as unknown[][]).map((d) => ({
         time: Math.floor(Number(d[0]) / 1000),
         open: Number(d[1]),

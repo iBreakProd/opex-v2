@@ -31,7 +31,5 @@ export function useSessionProbe() {
     if (query.isError) setAuthenticated(false);
   }, [query.isSuccess, query.isError, setAuthenticated]);
 
-  // removed debug logs
-
   return query;
 }

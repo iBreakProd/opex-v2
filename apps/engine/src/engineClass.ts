@@ -50,6 +50,12 @@ export class Engine {
   private readonly groupName = "group-1";
   private readonly consumerName = "consumer-1";
 
+  private running = true;
+
+  stop(): void {
+    this.running = false;
+  }
+
   async run(): Promise<void> {
     await this.enginePuller.connect();
     await this.enginePusher.connect();
@@ -68,21 +74,26 @@ export class Engine {
       console.log("group exists");
     }
 
-    await this.loadSnapshot();
+    try {
+      await this.loadSnapshot();
 
-    const groups = await this.enginePuller.xInfoGroups(this.streamKey);
-    const lastDeliveredId = groups[0]?.["last-delivered-id"]?.toString();
+      const groups = await this.enginePuller.xInfoGroups(this.streamKey);
+      const lastDeliveredId = groups[0]?.["last-delivered-id"]?.toString();
 
-    if (
-      lastDeliveredId &&
-      this.lastConsumedStreamItemId !== "" &&
-      this.lastConsumedStreamItemId !== lastDeliveredId
-    ) {
-      await this.replay(this.lastConsumedStreamItemId, lastDeliveredId);
+      if (
+        lastDeliveredId &&
+        this.lastConsumedStreamItemId !== "" &&
+        this.lastConsumedStreamItemId !== lastDeliveredId
+      ) {
+        await this.replay(this.lastConsumedStreamItemId, lastDeliveredId);
+      }
+    } catch (err) {
+      console.error("Engine startup failed during load/replay", err);
+      throw err;
     }
 
     this.lastSnapShotAt = Date.now();
-    while (true) {
+    while (this.running) {
       try {
         if (this.lastConsumedStreamItemId !== "") {
           await this.enginePuller.xAck(
@@ -101,7 +112,7 @@ export class Engine {
           this.groupName,
           this.consumerName,
           { key: this.streamKey, id: ">" },
-          { BLOCK: 0, COUNT: 1 }
+          { BLOCK: 5000, COUNT: 1 }
         );
 
         if (res && res[0]) {
@@ -130,12 +141,42 @@ export class Engine {
         }
 
         if (Date.now() - this.lastSnapShotAt > 5000) {
-          await this.persistSnapshot();
-          await this.enginePuller.xTrim(this.streamKey, "MAXLEN", 10000);
+          const maxAttempts = 3;
+          const delaysMs = [1000, 2000];
+          let lastErr: unknown;
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+              await this.persistSnapshot();
+              await this.enginePuller.xTrim(this.streamKey, "MAXLEN", 10000);
+              lastErr = undefined;
+              break;
+            } catch (err) {
+              lastErr = err;
+              if (attempt < maxAttempts) {
+                const delay = delaysMs[attempt - 1] ?? 2000;
+                await new Promise((r) => setTimeout(r, delay));
+              }
+            }
+          }
+          if (lastErr !== undefined) {
+            console.error(
+              "Failed to persist snapshot after",
+              maxAttempts,
+              "attempts",
+              lastErr
+            );
+            process.exit(1);
+          }
         }
       } catch (loopErr) {
         console.error(loopErr);
       }
+    }
+
+    try {
+      await this.persistSnapshot();
+    } catch (err) {
+      console.error("Final snapshot on shutdown failed", err);
     }
   }
 
@@ -147,13 +188,32 @@ export class Engine {
     );
 
     const missed = entries.slice(1);
+    const maxRetries = 3;
+    const retryDelayMs = 500;
+
     for (const entry of missed) {
-      try {
-        const msg = this.parseMessage(entry.message);
-        await this.handleReplayMessage(msg);
-        this.lastConsumedStreamItemId = entry.id;
-      } catch (err) {
-        console.error("Replay broke", err);
+      let lastErr: unknown;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const msg = this.parseMessage(entry.message);
+          await this.handleReplayMessage(msg);
+          this.lastConsumedStreamItemId = entry.id;
+          lastErr = undefined;
+          break;
+        } catch (err) {
+          lastErr = err;
+          if (attempt < maxRetries) {
+            await new Promise((r) => setTimeout(r, retryDelayMs));
+          }
+        }
+      }
+      if (lastErr !== undefined) {
+        console.error(
+          "Replay message failed after retries",
+          entry.id,
+          lastErr
+        );
+        throw lastErr;
       }
     }
   }
@@ -526,15 +586,10 @@ export class Engine {
     const pnlInt = fixed4ToInt(pnl);
 
     const newBalChange = pnlInt + order.margin;
-
-    this.userBalances[userId] = {
+    const newUserBal: UserBalance = {
       balance: this.userBalances[userId].balance + newBalChange,
       decimal: 4,
     };
-
-    this.openOrders[userId] = this.openOrders[userId]!.filter(
-      (o) => o.id !== orderId
-    );
 
     const closedOrder = {
       ...order,
@@ -546,15 +601,16 @@ export class Engine {
     };
 
     try {
-      await db.insert(schema.existingTrades).values(closedOrder);
-
-      await db
-        .update(schema.users)
-        .set({
-          balance: this.userBalances[userId].balance,
-          decimal: this.userBalances[userId].decimal,
-        })
-        .where(eq(schema.users.id as any, userId) as any);
+      await db.transaction(async (tx) => {
+        await tx.insert(schema.existingTrades).values(closedOrder);
+        await tx
+          .update(schema.users)
+          .set({
+            balance: newUserBal.balance,
+            decimal: newUserBal.decimal,
+          })
+          .where(eq(schema.users.id as any, userId) as any);
+      });
     } catch (dbErr) {
       const raw =
         dbErr instanceof Error ? dbErr.message : String(dbErr ?? "");
@@ -571,13 +627,17 @@ export class Engine {
         code === "23505" ||
         /unique|duplicate/i.test(raw);
       if (isDuplicateKey) {
+        this.userBalances[userId] = newUserBal;
+        this.openOrders[userId] = this.openOrders[userId]!.filter(
+          (o) => o.id !== orderId
+        );
         return {
           type: "trade-close-ack",
           reqId: msg.reqId,
           payload: {
             message: "Order Closed",
             orderId,
-            userBal: this.userBalances[userId],
+            userBal: newUserBal,
           },
         };
       }
@@ -589,13 +649,18 @@ export class Engine {
       };
     }
 
+    this.userBalances[userId] = newUserBal;
+    this.openOrders[userId] = this.openOrders[userId]!.filter(
+      (o) => o.id !== orderId
+    );
+
     return {
       type: "trade-close-ack",
       reqId: msg.reqId,
       payload: {
         message: "Order Closed",
         orderId,
-        userBal: this.userBalances[userId],
+        userBal: newUserBal,
       },
     };
   }

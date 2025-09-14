@@ -9,8 +9,9 @@ type PendingEntry = {
 export class ResponseLoop {
   private idResponseMap: Record<string, PendingEntry> = {};
 
-  constructor() {
-    engineResponsePuller.connect();
+  constructor() {}
+
+  start(): void {
     this.runLoop();
   }
 
@@ -34,7 +35,7 @@ export class ResponseLoop {
             key: "stream:engine:response",
             id: "$",
           },
-          { BLOCK: 0, COUNT: 1 }
+          { BLOCK: 5000, COUNT: 1 }
         );
 
         if (!res?.[0]?.messages?.[0]?.message) continue;

@@ -67,8 +67,6 @@ const collectionName = "engine_backup";
       const streamMetaData = await enginePuller.xInfoGroups("stream:app:info");
       const lastDeliveredId = streamMetaData[0]?.["last-delivered-id"];
 
-      // console.log(lastConsumedStreamItemId, lastDeliveredId);
-
       const res = await enginePuller.xRange(
         "stream:app:info",
         lastConsumedStreamItemId,
@@ -103,9 +101,7 @@ const collectionName = "engine_backup";
       const reqType = res[0]?.messages[0]?.message.type;
 
       lastConsumedStreamItemId = res[0]?.messages[0]?.id!;
-      // console.log("res", lastConsumedStreamItemId);
 
-      // User Signup and Signin
       if (reqType === "user-signup" || reqType === "user-signin") {
         const user = JSON.parse(res[0]?.messages[0]?.message.user!);
 
@@ -164,7 +160,6 @@ const collectionName = "engine_backup";
             const lossTakingCapacityInt = Number(lossTakingCapacityIntStr);
 
             if (pnlInt < -0.9 * lossTakingCapacityInt) {
-              //close Trade
               const newBalChange = pnlInt + order.margin;
 
               userBalances[userId] = {
@@ -184,14 +179,9 @@ const collectionName = "engine_backup";
                 liquidated: true,
                 userId,
               };
-
-              // Legacy engine path; left unused but kept for reference.
             }
           });
         }
-
-        // console.log(currentPrice);
-        // Trade Open
       } else if (reqType === "trade-open") {
         const tradeInfo = JSON.parse(res[0]!.messages[0]?.message.tradeInfo!);
         const userId = res[0]!.messages[0]?.message.userId;
@@ -289,7 +279,6 @@ const collectionName = "engine_backup";
           }),
         });
 
-        // Trade Close
       } else if (reqType === "trade-close") {
         const orderId = res[0]?.messages[0]?.message.orderId!;
         const userId = res[0]?.messages[0]?.message.userId!;
@@ -310,7 +299,6 @@ const collectionName = "engine_backup";
 
         openOrders[userId]?.forEach((o) => {
           if (o.id === orderId) {
-            // console.log(o);
             order = o;
           }
         });
@@ -364,8 +352,6 @@ const collectionName = "engine_backup";
           liquidated: false,
           userId,
         };
-
-        // Legacy engine path; left unused but kept for reference.
 
         await enginePusher.xAdd("stream:engine:response", "*", {
           type: "trade-close-ack",

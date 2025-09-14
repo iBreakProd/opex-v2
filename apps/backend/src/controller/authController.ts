@@ -146,6 +146,7 @@ export const signinController = async (req: Request, res: Response) => {
       });
       return;
     }
+    console.warn("[auth] signin failed", err);
     res.status(400).json({
       message: "Could not sign in, request timed out",
     });

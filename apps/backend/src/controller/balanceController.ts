@@ -23,6 +23,7 @@ export const getAssetBalanceController = async (
       data,
     });
   } catch (err) {
+    console.warn("[balance] get-asset-bal request failed", err);
     res.status(411).json({ message: "Could not get the asset balance" });
   }
 };
@@ -45,6 +46,7 @@ export const getUsdBalanceController = async (req: Request, res: Response) => {
       data,
     });
   } catch (err) {
+    console.warn("[balance] get-usd-bal request failed", err);
     res.status(411).json({ message: "Could not get the USD balance" });
   }
 };

@@ -21,8 +21,6 @@ export const closeOrderSchema = z.object({
   orderId: z.string().min(1).max(64).regex(UUID_REGEX),
 });
 
-// Engine Message Schemas:
-
 export const BaseMsg = z.object({ reqId: z.string(), type: z.string() });
 
 export const UserAuthMsg = BaseMsg.extend({

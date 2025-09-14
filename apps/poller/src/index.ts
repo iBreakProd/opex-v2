@@ -4,6 +4,16 @@ import { publisher } from "@repo/redis/pubsub";
 import { priceUpdatePusher } from "@repo/redis/queue";
 import { BackpackDataType, FilteredDataType } from "@repo/types/types";
 
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled rejection", reason);
+  process.exitCode = 1;
+});
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception", err);
+  process.exitCode = 1;
+  process.exit(1);
+});
+
 function getRequiredEnv(name: string): string {
   const value = process.env[name];
   if (value === undefined || value === "") {
@@ -13,8 +23,11 @@ function getRequiredEnv(name: string): string {
 }
 
 const BACKPACK_URL = getRequiredEnv("BACKPACK_URL");
+const SHUTDOWN_TIMEOUT_MS = 3_000;
 
 let lastInsertTime = Date.now();
+let currentBackpackWs: WebSocket | null = null;
+let running = true;
 let assetPrices: Record<string, FilteredDataType> = {
   ETH_USDC_PERP: { ask_price: 0, bid_price: 0, decimal: 0 },
   SOL_USDC_PERP: { ask_price: 0, bid_price: 0, decimal: 0 },
@@ -34,7 +47,9 @@ function safePriceFromStr(value: unknown): number {
 }
 
 function runPoller(): void {
+  if (!running) return;
   const ws = new WebSocket(BACKPACK_URL);
+  currentBackpackWs = ws;
 
   ws.onopen = () => {
     console.log("Connected to the backpack WebSocket");
@@ -100,13 +115,48 @@ function runPoller(): void {
   };
 
   ws.onclose = () => {
-    console.log("Backpack WebSocket closed, reconnecting in 5s");
-    setTimeout(() => runPoller(), 5000);
+    currentBackpackWs = null;
+    if (running) {
+      console.log("Backpack WebSocket closed, reconnecting in 5s");
+      setTimeout(() => runPoller(), 5000);
+    }
   };
 }
 
+async function gracefulShutdown(): Promise<void> {
+  running = false;
+  if (currentBackpackWs) {
+    currentBackpackWs.close();
+    currentBackpackWs = null;
+  }
+  const forceExit = setTimeout(() => {
+    console.error("Poller shutdown timeout");
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS);
+  try {
+    await Promise.all([publisher.quit(), priceUpdatePusher.quit()]);
+  } catch (err) {
+    console.error("Poller shutdown Redis close error", err);
+  }
+  clearTimeout(forceExit);
+  process.exit(0);
+}
+
+process.on("SIGTERM", () => {
+  void gracefulShutdown();
+});
+process.on("SIGINT", () => {
+  void gracefulShutdown();
+});
+
 (async () => {
-  await publisher.connect();
-  await priceUpdatePusher.connect();
-  runPoller();
+  try {
+    await publisher.connect();
+    await priceUpdatePusher.connect();
+    runPoller();
+  } catch (err) {
+    console.error("Poller failed to connect to Redis", err);
+    process.exitCode = 1;
+    process.exit(1);
+  }
 })();
