@@ -15,10 +15,10 @@
   "license": "ISC",
   "dependencies": {
     "dotenv": "^17.2.2",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "@repo/redis": "workspace:*"
   },
   "devDependencies": {
-    "@repo/redis": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/ws": "^8.18.1"
   }

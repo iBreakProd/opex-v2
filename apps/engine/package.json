@@ -11,7 +11,6 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@repo/types": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.15.3"
   },
@@ -21,7 +20,8 @@
     "dotenv": "^17.2.2",
     "drizzle-orm": "^0.45.1",
     "mongodb": "^6.19.0",
-    "zod": "^4.1.5"
+    "zod": "^4.1.5",
+    "@repo/types": "workspace:*"
   },
   "keywords": [],
   "author": "",

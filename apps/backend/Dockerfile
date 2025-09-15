@@ -39,6 +39,7 @@ RUN pnpm install --frozen-lockfile --prod
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder /app/packages/db/dist ./packages/db/dist
 COPY --from=builder /app/packages/redis/dist ./packages/redis/dist
+COPY --from=builder /app/packages/types/src ./packages/types/src
 
 ENV NODE_ENV=production
 EXPOSE 3000
