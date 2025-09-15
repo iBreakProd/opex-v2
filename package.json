@@ -2,7 +2,7 @@
   "name": "opex-v2",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
+    "build": "turbo run build --no-cache",
     "dev": "turbo run dev",
     "start": "turbo run start",
     "lint": "turbo run lint",

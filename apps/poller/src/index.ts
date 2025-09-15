@@ -5,11 +5,11 @@ import { priceUpdatePusher } from "@repo/redis/queue";
 import { BackpackDataType, FilteredDataType } from "@repo/types/types";
 
 process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled rejection", reason);
+  console.error("\n\n[Poller] Unhandled rejection", reason);
   process.exitCode = 1;
 });
 process.on("uncaughtException", (err) => {
-  console.error("Uncaught exception", err);
+  console.error("\n\n[Poller] Uncaught exception", err);
   process.exitCode = 1;
   process.exit(1);
 });
@@ -17,7 +17,7 @@ process.on("uncaughtException", (err) => {
 function getRequiredEnv(name: string): string {
   const value = process.env[name];
   if (value === undefined || value === "") {
-    throw new Error(`Missing required environment variable: ${name}`);
+    throw new Error(`\n\n[Poller] Missing required environment variable: ${name}`);
   }
   return value;
 }
@@ -48,13 +48,13 @@ function safePriceFromStr(value: unknown): number {
 
 function runPoller(): void {
   if (!running) return;
+  console.log(`\n\n[Poller] Connecting to ${BACKPACK_URL}...`);
   const ws = new WebSocket(BACKPACK_URL);
   currentBackpackWs = ws;
 
   ws.onopen = () => {
-    console.log("Connected to the backpack WebSocket");
-    ws.send(
-      JSON.stringify({
+    console.log("\n\n[Poller] Connected to Backpack WebSocket");
+    const payload = JSON.stringify({
         method: "SUBSCRIBE",
         params: [
           "bookTicker.BTC_USDC_PERP",
@@ -62,9 +62,9 @@ function runPoller(): void {
           "bookTicker.SOL_USDC_PERP",
         ],
         id: 1,
-      })
-    );
-    console.log("Subscribed to Backpack");
+      });
+    ws.send(payload);
+    console.log("\n\n[Poller] Subscribed to Backpack tickers:", payload);
   };
 
   ws.onmessage = (msg) => {
@@ -72,6 +72,7 @@ function runPoller(): void {
       const parsed = JSON.parse(msg.data.toString()) as { data?: unknown };
       const data = parsed?.data;
       if (!data || typeof data !== "object" || !("a" in data) || !("b" in data) || !("s" in data)) {
+        // console.debug("[Poller] Received non-ticker message:", msg.data.toString().slice(0, 100)); // Debug log for non-ticker
         return;
       }
       const d = data as BackpackDataType;
@@ -89,56 +90,68 @@ function runPoller(): void {
       if (symbol) {
         assetPrices[symbol] = filteredData;
       }
-
-      if (Date.now() - lastInsertTime > 100) {
+      
+      const timeDiff = Date.now() - lastInsertTime;
+      if (timeDiff > 100) {
         const dataToBeSent: Record<string, FilteredDataType> = {};
+        let updateCount = 0;
         for (const [key, value] of Object.entries(assetPrices)) {
           if (value.ask_price !== 0) {
             dataToBeSent[key] = value;
+            updateCount++;
           }
         }
-        publisher.publish("ws:price:update", JSON.stringify(dataToBeSent));
-        priceUpdatePusher.xAdd("stream:app:info", "*", {
-          reqId: "no-return",
-          type: "price-update",
-          tradePrices: JSON.stringify(dataToBeSent),
-        });
-        lastInsertTime = Date.now();
+        
+        if (updateCount > 0) {
+            // console.log(`\n\n[Poller] Publishing price update for ${updateCount} assets. Time since last: ${timeDiff}ms`);
+            publisher.publish("ws:price:update", JSON.stringify(dataToBeSent));
+            priceUpdatePusher.xAdd("stream:app:info", "*", {
+                reqId: "no-return",
+                type: "price-update",
+                tradePrices: JSON.stringify(dataToBeSent),
+            });
+            lastInsertTime = Date.now();
+        }
       }
     } catch (err) {
-      console.error("Poller message error", err);
+      console.error("\n\n[Poller] Message processing error", err);
     }
   };
 
   ws.onerror = (err) => {
-    console.error("Backpack WebSocket error", err);
+    console.error("\n\n[Poller] Backpack WebSocket Error", err);
   };
 
   ws.onclose = () => {
     currentBackpackWs = null;
     if (running) {
-      console.log("Backpack WebSocket closed, reconnecting in 5s");
+      console.log("\n\n[Poller] Backpack WebSocket Closed. Reconnecting in 5s...");
       setTimeout(() => runPoller(), 5000);
+    } else {
+        console.log("\n\n[Poller] Backpack WebSocket Closed (Shutdown).");
     }
   };
 }
 
 async function gracefulShutdown(): Promise<void> {
+  console.log("\n\n[Poller] Initiating Graceful Shutdown...");
   running = false;
   if (currentBackpackWs) {
     currentBackpackWs.close();
     currentBackpackWs = null;
   }
   const forceExit = setTimeout(() => {
-    console.error("Poller shutdown timeout");
+    console.error("\n\n[Poller] Shutdown Timeout - Force Exiting");
     process.exit(1);
   }, SHUTDOWN_TIMEOUT_MS);
   try {
     await Promise.all([publisher.quit(), priceUpdatePusher.quit()]);
+    console.log("\n\n[Poller] Redis connections closed.");
   } catch (err) {
-    console.error("Poller shutdown Redis close error", err);
+    console.error("\n\n[Poller] Redis close error during shutdown", err);
   }
   clearTimeout(forceExit);
+  console.log("\n\n[Poller] Shutdown Complete.");
   process.exit(0);
 }
 
@@ -151,11 +164,13 @@ process.on("SIGINT", () => {
 
 (async () => {
   try {
+    console.log("\n\n[Poller] Starting Poller Service...");
     await publisher.connect();
     await priceUpdatePusher.connect();
+    console.log("\n\n[Poller] Redis Publisher & Pusher Connected.");
     runPoller();
   } catch (err) {
-    console.error("Poller failed to connect to Redis", err);
+    console.error("\n\n[Poller] Startup Failed (Redis Connect Error)", err);
     process.exitCode = 1;
     process.exit(1);
   }

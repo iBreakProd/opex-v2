@@ -161,14 +161,14 @@ export class ResponseLoop {
             break;
           }
           default:
-            console.error("ResponseLoop: unknown response type", reqType);
+            console.error("\n\nResponseLoop: unknown response type", reqType);
             this.safeSettle(gotId, (e) =>
               e.reject("Unknown response type")
             );
             break;
         }
       } catch (err) {
-        console.error("ResponseLoop error", err);
+        console.error("\n\nResponseLoop error", err);
       }
     }
   }

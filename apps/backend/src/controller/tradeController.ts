@@ -18,7 +18,7 @@ import {
       await httpPusher.connect();
     }
   } catch (err) {
-    console.error("[redis] trade/http pusher connect error", err);
+    console.error("\n\n[redis] trade/http pusher connect error", err);
   }
 })();
 
@@ -48,6 +48,7 @@ export const openTradeController = async (req: Request, res: Response) => {
   const validInput = createOrderSchema.safeParse(req.body);
 
   if (!validInput.success) {
+    console.warn("\n\n[Backend] Invalid trade request:", validInput.error);
     res.status(411).json({
       message:
         "Invalid trade request. Please check asset, leverage, quantity, slippage, and price.",
@@ -58,17 +59,25 @@ export const openTradeController = async (req: Request, res: Response) => {
   const userId = (req as unknown as { userId: string }).userId;
   const reqId = Date.now().toString() + crypto.randomUUID();
   const tradeInfo = JSON.stringify(validInput.data);
+  console.log(`\n\n[Backend] Open Trade Request. User: ${userId}, ReqId: ${reqId}`);
+  console.log(`\n\n[Backend] Trade Payload (Stringified): ${tradeInfo}`);
 
   try {
+    console.time(`[Backend] Trade Latency ${reqId}`);
+    console.log(`\n\n[Backend] Pushing trade-open to stream. ReqId: ${reqId}`);
     await tradePusher.xAdd("stream:app:info", "*", {
       type: "trade-open",
       tradeInfo,
       userId,
       reqId,
     });
+    console.log(`\n\n[Backend] Trade Open Sent to Stream. ReqId: ${reqId}`);
 
     const response = await responseLoopObj.waitForResponse(reqId);
+    console.timeEnd(`[Backend] Trade Latency ${reqId}`);
+
     if (response === undefined || response === null || typeof response !== "string") {
+      console.warn(`\n\n[Backend] Trade Response Invalid or Timeout. ReqId: ${reqId}`);
       res
         .status(411)
         .json({ message: "We couldn’t confirm the trade. Please try again." });
@@ -78,32 +87,40 @@ export const openTradeController = async (req: Request, res: Response) => {
       const parsed = JSON.parse(response) as { order?: unknown; orderId?: string };
       const { order, orderId } = parsed;
       if (order === undefined || orderId === undefined) {
+        console.warn(`\n\n[Backend] Trade Response Parsing Failed (Missing order/id). Resp: ${response}`);
         res
           .status(411)
           .json({ message: "We couldn’t confirm the trade. Please try again." });
         return;
       }
 
+      console.log(`\n\n[Backend] Trade Executed Successfully. OrderID: ${orderId}`);
+
       let openOrders: unknown = undefined;
       let usdBalance: unknown = undefined;
       try {
+        console.time(`[Backend] State Refresh Latency ${reqId}`);
         const [ordersResult, balResult] = await Promise.all([
           fetchOpenOrders(userId),
           fetchUsdBalance(userId),
         ]);
+        console.timeEnd(`[Backend] State Refresh Latency ${reqId}`);
         openOrders = ordersResult;
         usdBalance = balResult;
       } catch (stateErr) {
+        console.error("\n\n[Backend] Failed to refresh state after trade", stateErr);
         logTradeFailure("open.state-refresh", stateErr);
       }
 
       res.json({ message: "trade executed", order, orderId, openOrders, usdBalance });
-    } catch {
+    } catch (e) {
+      console.error("\n\n[Backend] Error Parsing Trade Response", e);
       res
         .status(411)
         .json({ message: "We couldn’t confirm the trade. Please try again." });
     }
   } catch (err) {
+    console.error("\n\n[Backend] Open Trade Controller Error", err);
     logTradeFailure("open", err);
     res.status(411).json({ message: mapTradeErrorToUserMessage(err) });
   }

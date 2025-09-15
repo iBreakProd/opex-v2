@@ -13,11 +13,11 @@ import {
 import { responseLoopObj } from "./utils/responseLoop";
 
 process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled rejection", reason);
+  console.error("\n\nUnhandled rejection", reason);
   process.exitCode = 1;
 });
 process.on("uncaughtException", (err) => {
-  console.error("Uncaught exception", err);
+  console.error("\n\nUncaught exception", err);
   process.exitCode = 1;
   process.exit(1);
 });
@@ -37,6 +37,23 @@ app.use(
   })
 );
 
+app.use((req, res, next) => {
+    const start = Date.now();
+    console.log(`\n\n[Backend] Incoming ${req.method} ${req.url}`);
+    if (req.body && Object.keys(req.body).length > 0) {
+        console.log(`\n\n[Backend] Body: ${JSON.stringify(req.body).slice(0, 500)}`);
+    }
+    if (req.query && Object.keys(req.query).length > 0) {
+        console.log(`\n\n[Backend] Query: ${JSON.stringify(req.query)}`);
+    }
+    
+    res.on("finish", () => {
+        const duration = Date.now() - start;
+        console.log(`\n\n[Backend] Completed ${req.method} ${req.url} ${res.statusCode} in ${duration}ms`);
+    });
+    next();
+});
+
 app.use("/api/v1", router);
 
 app.use(errorHandler);
@@ -47,12 +64,12 @@ let server: ReturnType<express.Express["listen"]> | undefined;
   try {
     await engineResponsePuller.connect();
   } catch (err) {
-    console.error("Backend failed to connect response loop Redis", err);
+    console.error("\n\nBackend failed to connect response loop Redis", err);
     process.exit(1);
   }
   responseLoopObj.start();
   server = app.listen(config.HTTP_PORT, () => {
-    console.log(`Server started at ${config.HTTP_PORT}`);
+    console.log(`\n\nServer started at ${config.HTTP_PORT}`);
   });
 })();
 
@@ -66,7 +83,7 @@ async function gracefulShutdown(): Promise<void> {
   if (s) {
     await new Promise<void>((resolve) => {
       const timeout = setTimeout(() => {
-        console.error("Backend shutdown timeout");
+        console.error("\n\nBackend shutdown timeout");
         resolve();
       }, SHUTDOWN_TIMEOUT_MS);
 
@@ -89,7 +106,7 @@ async function gracefulShutdown(): Promise<void> {
       ),
     ]);
   } catch (err) {
-    console.error("Redis close error", err);
+    console.error("\n\nRedis close error", err);
   }
 
   process.exit(0);

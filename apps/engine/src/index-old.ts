@@ -46,11 +46,11 @@ const collectionName = "engine_backup";
         MKSTREAM: true,
       });
     } catch (err) {
-      console.log("group exists");
+      console.log("\n\ngroup exists");
     }
 
     await mongodbClient.connect();
-    console.log("Connected to db");
+    console.log("\n\nConnected to db");
 
     const db = mongodbClient.db(dbName);
     const collection = db.collection(collectionName);
@@ -445,9 +445,9 @@ const collectionName = "engine_backup";
           data,
         });
 
-        console.log("inserted");
+        console.log("\n\ninserted");
       } else {
-        console.log("replaced");
+        console.log("\n\nreplaced");
       }
 
       console.log(await collection.findOne());

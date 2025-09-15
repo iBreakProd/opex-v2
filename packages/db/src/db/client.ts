@@ -12,7 +12,7 @@ let dbInstance:
 const connectionUrl = process.env.DATABASE_URL;
 
 if (!connectionUrl) {
-  throw new Error("DATABASE_URL is not defined");
+  throw new Error("\n\nDATABASE_URL is not defined");
 }
 
 if (process.env.NODE_ENV === "production") {
@@ -28,7 +28,7 @@ if (process.env.NODE_ENV === "production") {
 }
 
 if (!dbInstance) {
-  throw new Error("DB is not initialized");
+  throw new Error("\n\nDB is not initialized");
 }
 
 export const db = dbInstance;

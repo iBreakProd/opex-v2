@@ -8,14 +8,16 @@ import {
   createHashRouter,
   RouterProvider,
 } from "react-router-dom";
-import Signup from "@/pages/Signup";
+import Login from "@/pages/Login";
+import Landing from "@/pages/Landing";
 import Trade from "@/pages/Trade";
 import NotFound from "@/pages/NotFound";
 import Unauthorized from "@/pages/Unauthorized";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 const routes = [
-  { path: "/", element: <Signup /> },
+  { path: "/", element: <Landing /> },
+  { path: "/login", element: <Login /> },
   {
     element: <ProtectedRoute />,
     children: [{ path: "/trade", element: <Trade /> }],

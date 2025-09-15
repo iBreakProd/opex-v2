@@ -6,7 +6,7 @@ import {
 } from "@/lib/openOrdersStore";
 import { useQuotesStore } from "@/lib/quotesStore";
 import { toDecimalNumber } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 
 function appToDisplaySymbol(backendSymbol: string): string {
   return backendSymbol.replace("_USDC_PERP", "USDC").replaceAll("_", "");
@@ -14,7 +14,7 @@ function appToDisplaySymbol(backendSymbol: string): string {
 
 export default function OpenOrders() {
   const { isLoading, isFetching, isError } = useFetchOpenOrders();
-  const { mutate: closeOrder, isPending: isClosing } = useCloseOrder();
+  const { mutate: closeOrder } = useCloseOrder();
   const orders = Object.values(useOpenOrdersStore((s) => s.ordersById));
   const quotes = useQuotesStore((s) => s.quotes);
 
@@ -36,51 +36,37 @@ export default function OpenOrders() {
   }, [orders, quotes]);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse">
-        <thead>
+    <div className="w-full">
+      <table className="w-full border-collapse text-left">
+        <thead className="bg-background-light sticky top-0 font-mono-retro border-b border-text-main/10">
           <tr>
-            <th className="border-b px-2 py-2 text-left text-sm font-medium">
-              Asset
-            </th>
-            <th className="border-b px-2 py-2 text-center text-sm font-medium">
-              Type
-            </th>
-            <th className="border-b px-2 py-2 text-right text-sm font-medium">
-              Open
-            </th>
-            <th className="border-b px-2 py-2 text-right text-sm font-medium">
-              Current
-            </th>
-            <th className="border-b px-2 py-2 text-right text-sm font-medium">
-              Qty
-            </th>
-            <th className="border-b px-2 py-2 text-right text-sm font-medium">
-              Levg
-            </th>
-            <th className="border-b px-2 py-2 text-right text-sm font-medium">
-              PnL
-            </th>
-            <th className="border-b px-2 py-2" />
+            <th className="p-3 text-[10px] font-bold uppercase text-text-main/60 tracking-wider">Asset</th>
+            <th className="p-3 text-[10px] font-bold uppercase text-text-main/60 tracking-wider text-center">Type</th>
+            <th className="p-3 text-[10px] font-bold uppercase text-text-main/60 tracking-wider text-right">Entry</th>
+            <th className="p-3 text-[10px] font-bold uppercase text-text-main/60 tracking-wider text-right">Mark</th>
+            <th className="p-3 text-[10px] font-bold uppercase text-text-main/60 tracking-wider text-right">Qty</th>
+            <th className="p-3 text-[10px] font-bold uppercase text-text-main/60 tracking-wider text-right">Lev</th>
+            <th className="p-3 text-[10px] font-bold uppercase text-text-main/60 tracking-wider text-right">PnL</th>
+            <th className="p-3 text-[10px] font-bold uppercase text-text-main/60 tracking-wider text-right">Action</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="font-mono-retro text-sm">
           {isLoading || isFetching ? (
             <tr>
               <td
-                className="px-3 py-3 text-center text-muted-foreground"
+                className="p-8 text-center text-xs text-text-main/40 font-bold uppercase"
                 colSpan={8}
               >
-                Loading open orders…
+                // SYNCING_ORDERS...
               </td>
             </tr>
           ) : isError ? (
             <tr>
               <td
-                className="px-3 py-3 text-center text-red-600 text-xs"
+                className="p-8 text-center text-xs text-chart-red font-bold uppercase"
                 colSpan={8}
               >
-                Could not load open orders. Please try again.
+                // SYNC_ERROR_RETRYING...
               </td>
             </tr>
           ) : null}
@@ -89,45 +75,44 @@ export default function OpenOrders() {
             !isFetching &&
             !isError &&
             rows.map((r) => (
-            <tr key={r.id}>
-              <td className="border-b px-2 py-2">{r.appSym}</td>
-              <td className="border-b px-2 py-2 text-center capitalize">
+            <tr key={r.id} className="border-b border-text-main/5 hover:bg-white/50 transition-colors">
+              <td className="p-3 font-bold">{r.appSym}</td>
+              <td className={`p-3 text-center font-bold uppercase text-xs ${r.type === 'long' ? 'text-chart-green' : 'text-chart-red'}`}>
                 {r.type}
               </td>
-              <td className="border-b px-2 py-2 text-right">
+              <td className="p-3 text-right">
                 {toDecimalNumber(r.openPrice, r.decimal)}
               </td>
-              <td className="border-b px-2 py-2 text-right">
+              <td className="p-3 text-right">
                 {toDecimalNumber(r.current, r.decimal)}
               </td>
-              <td className="border-b px-2 py-2 text-right">{r.quantity}</td>
-              <td className="border-b px-2 py-2 text-right">{r.leverage}</td>
+              <td className="p-3 text-right font-bold">{r.quantity}</td>
+              <td className="p-3 text-right opacity-60">{r.leverage}x</td>
               <td
-                className={`border-b px-2 py-2 text-right ${
-                  r.pnlDec >= 0 ? "text-emerald-600" : "text-red-600"
+                className={`p-3 text-right font-bold ${
+                  r.pnlDec >= 0 ? "text-chart-green" : "text-chart-red"
                 }`}
               >
-                {(r.pnlDec * r.leverage).toFixed(r.decimal)}
+                {r.pnlDec > 0 ? "+" : ""}{(r.pnlDec * r.leverage).toFixed(r.decimal)}
               </td>
-              <td className="border-b px-2 py-2 text-right">
-                <Button
+              <td className="p-3 text-right">
+                <button
                   onClick={() => closeOrder(r.id)}
-                  disabled={isClosing}
-                  size="sm"
-                  variant="destructive"
+                  className="p-1 hover:bg-chart-red hover:text-white text-text-main transition-colors border border-transparent hover:border-chart-red rounded-sm"
+                  title="Close Position"
                 >
-                  Close
-                </Button>
+                  <X className="w-4 h-4" />
+                </button>
               </td>
             </tr>
           ))}
           {!isLoading && !isFetching && !isError && rows.length === 0 ? (
             <tr>
               <td
-                className="px-3 py-3 text-center text-muted-foreground"
+                className="p-12 text-center text-xs text-text-main/40 font-bold uppercase"
                 colSpan={8}
               >
-                No open orders
+                // NO_OPEN_POSITIONS
               </td>
             </tr>
           ) : null}

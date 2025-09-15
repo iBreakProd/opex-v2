@@ -47,7 +47,7 @@ export function useKlines(symbol: string, interval: Interval, limit = 100) {
       if (limit) params.set("limit", String(limit));
       const url = `${KLINES_BASE}?${params.toString()}`;
       if (import.meta.env.DEV) {
-        console.log("[klines] request", { url });
+        console.log("\n\n[klines] request", { url });
       }
       const { data } = await axios.get(url, { withCredentials: false });
       const out = (data as unknown as unknown[][]).map((d) => ({
@@ -58,8 +58,8 @@ export function useKlines(symbol: string, interval: Interval, limit = 100) {
         close: Number(d[4]),
       })) as Kline[];
       if (import.meta.env.DEV) {
-        console.log("[klines] response count", out.length);
-        console.log("[klines] first/last", out[0], out[out.length - 1]);
+        console.log("\n\n[klines] response count", out.length);
+        console.log("\n\n[klines] first/last", out[0], out[out.length - 1]);
       }
       return out;
     },
@@ -80,7 +80,7 @@ export async function fetchKlinesBefore(
   params.set("limit", String(limit));
   if (endTimeSec) params.set("endTime", String(endTimeSec * 1000));
   const url = `${KLINES_BASE}?${params.toString()}`;
-  if (import.meta.env.DEV) console.log("[klines.before]", { url });
+  if (import.meta.env.DEV) console.log("\n\n[klines.before]", { url });
   const { data } = await axios.get(url, { withCredentials: false });
   const out = (data as unknown as unknown[][]).map((d) => ({
     time: Math.floor(Number(d[0]) / 1000),

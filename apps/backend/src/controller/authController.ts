@@ -54,11 +54,13 @@ export const emailGenController = async (req: Request, res: Response) => {
     }
     const jwtToken = jwt.sign(user!.id, secret);
 
+    console.log(`\n\n[Auth] Pushing user-signup to stream for User: ${user!.id}, ReqId: ${reqId}`);
     await httpPusher.xAdd("stream:app:info", "*", {
       type: "user-signup",
       user: JSON.stringify(user),
       reqId,
     });
+    console.log(`\n\n[Auth] Successfully pushed user-signup to stream. ReqId: ${reqId}`);
 
     await responseLoopObj.waitForResponse(reqId);
 
@@ -66,7 +68,7 @@ export const emailGenController = async (req: Request, res: Response) => {
 
     if (error) {
       console.log(error, "error");
-      console.log("send email fails");
+      console.log("\n\nsend email fails");
       res.status(400).json({ message: "Could not send email" });
       return;
     }
@@ -88,7 +90,7 @@ export const signinController = async (req: Request, res: Response) => {
   const token = req.query.token?.toString();
 
   if (!token) {
-    console.log("Token not found");
+    console.log("\n\nToken not found");
     res.status(411).json({
       message: "Token not found",
     });
@@ -118,11 +120,13 @@ export const signinController = async (req: Request, res: Response) => {
       });
       return;
     }
+    console.log(`\n\n[Auth] Pushing user-signin to stream for User: ${userFound.id}, ReqId: ${reqId}`);
     await httpPusher.xAdd("stream:app:info", "*", {
       type: "user-signin",
       user: JSON.stringify(userFound),
       reqId,
     });
+    console.log(`\n\n[Auth] Successfully pushed user-signin to stream. ReqId: ${reqId}`);
 
     await responseLoopObj.waitForResponse(reqId);
 
@@ -146,7 +150,7 @@ export const signinController = async (req: Request, res: Response) => {
       });
       return;
     }
-    console.warn("[auth] signin failed", err);
+    console.warn("\n\n[auth] signin failed", err);
     res.status(400).json({
       message: "Could not sign in, request timed out",
     });

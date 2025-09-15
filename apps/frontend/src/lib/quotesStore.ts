@@ -61,3 +61,7 @@ export function formatPrice(intPrice: number, decimal: number) {
   const frac = str.slice(str.length - decimal);
   return `${whole}.${frac}`;
 }
+
+export function getMidPrice(quote: { ask_price: number; bid_price: number; decimal: number }) {
+  return (quote.ask_price + quote.bid_price) / 2 / Math.pow(10, quote.decimal);
+}

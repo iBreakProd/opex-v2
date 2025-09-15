@@ -3,11 +3,11 @@ import { mongodbClient } from "./dbClient";
 import { Engine } from "./engineClass";
 
 process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled rejection", reason);
+  console.error("\n\nUnhandled rejection", reason);
   process.exitCode = 1;
 });
 process.on("uncaughtException", (err) => {
-  console.error("Uncaught exception", err);
+  console.error("\n\nUncaught exception", err);
   process.exitCode = 1;
   process.exit(1);
 });
@@ -21,7 +21,7 @@ const runPromise = engine.run();
 function onSignal(): void {
   engine.stop();
   const timeout = setTimeout(() => {
-    console.error("Engine shutdown timeout");
+    console.error("\n\nEngine shutdown timeout");
     process.exit(1);
   }, SHUTDOWN_TIMEOUT_MS);
   runPromise
@@ -42,7 +42,7 @@ process.on("SIGINT", onSignal);
   try {
     await runPromise;
   } catch (err) {
-    console.error("Engine failed to start", err);
+    console.error("\n\nEngine failed to start", err);
     process.exitCode = 1;
     process.exit(1);
   }

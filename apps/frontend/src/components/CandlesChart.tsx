@@ -13,7 +13,7 @@ import {
   type WhitespaceData,
 } from "lightweight-charts";
 import { useKlines, fetchKlinesBefore } from "@/lib/klines";
-import { useQuotesStore } from "@/lib/quotesStore";
+import { useQuotesStore, getMidPrice } from "@/lib/quotesStore";
 
 type SeriesPoint = CandlestickData<Time> | WhitespaceData<Time>;
 
@@ -30,9 +30,10 @@ function isCandlestickPoint(
 
 type Props = {
   symbol: string;
+  decimal?: number;
 };
 
-export default function CandlesChart({ symbol }: Props) {
+export default function CandlesChart({ symbol, decimal = 2 }: Props) {
   useCandlesFeed();
   const timeframe = useCandlesStore((s) => s.timeframe);
   const selected = useCandlesStore((s) => {
@@ -46,16 +47,23 @@ export default function CandlesChart({ symbol }: Props) {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<CandlestickSeriesApi | null>(null);
 
-  function getIsDark() {
-    if (typeof document === "undefined") return false;
-    return document.documentElement.classList.contains("dark");
-  }
+  useEffect(() => {
+    if (seriesRef.current && decimal) {
+      seriesRef.current.applyOptions({
+        priceFormat: {
+          type: "price",
+          precision: decimal,
+          minMove: 1 / Math.pow(10, decimal),
+        },
+      });
+    }
+  }, [decimal]);
+
 
   function getLayout() {
-    const isDark = getIsDark();
     return {
-      textColor: isDark ? "#e5e7eb" : "#111827",
-      background: { color: isDark ? "#0f172a" : "#ffffff" },
+      textColor: "#171707", 
+      background: { color: "#F3EFDE00" }, 
     } as const;
   }
 
@@ -82,18 +90,19 @@ export default function CandlesChart({ symbol }: Props) {
         borderVisible: false,
         timeVisible: true,
         secondsVisible: false,
+        barSpacing: 6,
+        rightOffset: 10,
       },
       grid: { vertLines: { visible: false }, horzLines: { visible: false } },
       height: initialHeight,
     });
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#16a34a",
-      downColor: "#dc2626",
+      upColor: "#C1C10B",
+      downColor: "#E73D27",
       borderVisible: false,
-      wickUpColor: "#16a34a",
-      wickDownColor: "#dc2626",
+      wickUpColor: "#C1C10B",
+      wickDownColor: "#E73D27",
     });
-    chart.timeScale().fitContent();
 
     chartRef.current = chart;
     seriesRef.current = series;
@@ -133,6 +142,8 @@ export default function CandlesChart({ symbol }: Props) {
         close: k.close,
       }))
     );
+     // Force scroll to the latest bar
+     chartRef.current?.timeScale().scrollToPosition(0, false);
   }, [klines]);
 
   useEffect(() => {
@@ -210,8 +221,7 @@ export default function CandlesChart({ symbol }: Props) {
   const live = useQuotesStore((s) => s.quotes[symbol]);
   useEffect(() => {
     if (!seriesRef.current || !live) return;
-    const price =
-      (live.ask_price + live.bid_price) / 2 / Math.pow(10, live.decimal);
+    const price = getMidPrice(live);
     const nowMs = Date.now();
     const bucketMs = (() => {
       switch (timeframe) {
@@ -248,24 +258,38 @@ export default function CandlesChart({ symbol }: Props) {
     }
   }, [live, timeframe, candles, symbol]);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return (
+    <div ref={containerRef} className="w-full h-full relative">
+       {/* UTC Label */}
+       <div className="absolute bottom-[10px] left-2 text-[10px] text-text-main/40 font-bold z-10 pointer-events-none font-mono-retro">
+          UTC
+       </div>
+    </div>
+  );
 }
 
 export function TimeframeSwitcher() {
   const timeframe = useCandlesStore((s) => s.timeframe);
   const setTimeframe = useCandlesStore((s) => s.setTimeframe);
   const tfs: Timeframe[] = ["1m", "5m", "15m", "1h", "1d"];
+  
   return (
-    <select
-      value={timeframe}
-      onChange={(e) => setTimeframe(e.target.value as Timeframe)}
-      className="rounded-md border bg-background px-2.5 py-1.5 text-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-    >
+    <div className="flex items-center gap-0.5 bg-white/80 backdrop-blur-sm p-0.5 rounded-md border border-text-main/10 shadow-sm scale-90 origin-center">
       {tfs.map((tf) => (
-        <option key={tf} value={tf}>
-          {tf}
-        </option>
+        <button
+          key={tf}
+          onClick={() => setTimeframe(tf)}
+          className={`
+            !px-3.5 !py-0.5 !rounded-sm text-[9px] font-bold font-mono-retro transition-all border uppercase
+            ${timeframe === tf
+              ? "bg-primary text-white border-primary shadow-sm"
+              : "bg-transparent text-text-main/60 border-transparent hover:bg-black/5 hover:text-text-main"
+            }
+          `}
+        >
+          {tf.toUpperCase()}
+        </button>
       ))}
-    </select>
+    </div>
   );
 }
