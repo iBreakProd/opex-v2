@@ -30,6 +30,13 @@ const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
+app.use((req, res, next) => {
+    console.log(`\n\n[Backend] Incoming ${req.method} ${req.url}`);
+    console.log(`[Backend] Origin: ${req.headers.origin}`);
+    console.log(`[Backend] Configured CORS_ORIGIN: ${config.CORS_ORIGIN}`);
+    next();
+});
+
 app.use(
   cors({
     origin: config.CORS_ORIGIN,

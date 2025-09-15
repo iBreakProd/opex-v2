@@ -4,7 +4,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import {
   createBrowserRouter,
-  createHashRouter,
   RouterProvider,
 } from "react-router-dom";
 import Login from "@/pages/Login";
@@ -25,9 +24,7 @@ const routes = [
   { path: "*", element: <NotFound /> },
 ];
 
-const router = (import.meta.env.PROD ? createHashRouter : createBrowserRouter)(
-  routes
-);
+const router = createBrowserRouter(routes);
 
 function Root() {
   return (
