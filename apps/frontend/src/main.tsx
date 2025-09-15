@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -31,14 +30,6 @@ const router = (import.meta.env.PROD ? createHashRouter : createBrowserRouter)(
 );
 
 function Root() {
-  useEffect(() => {
-    const stored = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    ).matches;
-    const isDark = stored ? stored === "dark" : prefersDark;
-    document.documentElement.classList.toggle("dark", isDark);
-  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />

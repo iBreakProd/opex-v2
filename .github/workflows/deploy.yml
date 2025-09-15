@@ -1,0 +1,144 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run migrations
+        run: pnpm --filter @repo/db db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Docker login
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Backend
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./apps/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/opex-backend:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/opex-backend:latest
+
+      - name: Build and push Frontend
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./apps/frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/opex-frontend:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/opex-frontend:latest
+          build-args: |
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+            VITE_WS_URL=${{ secrets.VITE_WS_URL }}
+
+      - name: Build and push Engine
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./apps/engine/Dockerfile
+          push: true
+          tags: |
+             ${{ secrets.DOCKERHUB_USERNAME }}/opex-engine:${{ github.sha }}
+             ${{ secrets.DOCKERHUB_USERNAME }}/opex-engine:latest
+
+      - name: Build and push WebSocket
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./apps/web-socket/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/opex-web-socket:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/opex-web-socket:latest
+
+      - name: Build and push Poller
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./apps/poller/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/opex-poller:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/opex-poller:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Create app directory on VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: mkdir -p ~/app
+
+      - name: Copy docker-compose to vm
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.SSH_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.production.yml"
+          target: "~/app/"
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/app
+            echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+            cat <<EOF > .env.production
+            DOCKERHUB_IMAGE_PREFIX=${{ secrets.DOCKERHUB_USERNAME }}/opex
+            IMAGE_TAG=${{ github.sha }}
+            NODE_ENV=production
+            REDIS_URL=${{ secrets.REDIS_URL }}
+            HTTP_PORT=3000
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            RESEND_API=${{ secrets.RESEND_API }}
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            CORS_ORIGIN=${{ secrets.CORS_ORIGIN }}
+            API_BASE_URL=${{ secrets.API_BASE_URL }}
+            MONGODB_URL=${{ secrets.MONGODB_URL }}
+            WS_PORT=8080
+            BACKPACK_URL=${{ secrets.BACKPACK_URL }}
+            EOF
+
+            docker compose -f docker-compose.production.yml pull
+            docker compose -f docker-compose.production.yml --env-file .env.production up -d

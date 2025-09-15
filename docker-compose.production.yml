@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+  frontend:
+    image: ${DOCKERHUB_IMAGE_PREFIX}-frontend:${IMAGE_TAG}
+    container_name: opex-frontend
+    restart: always
+    ports:
+      - "3051:80"
+
+  backend:
+    image: ${DOCKERHUB_IMAGE_PREFIX}-backend:${IMAGE_TAG}
+    container_name: opex-backend
+    restart: always
+    ports:
+      - "3050:3000"
+    env_file: .env.production
+    environment:
+      - NODE_ENV=production
+      - HTTP_PORT=3000
+
+  engine:
+    image: ${DOCKERHUB_IMAGE_PREFIX}-engine:${IMAGE_TAG}
+    container_name: opex-engine
+    restart: always
+    env_file: .env.production
+    environment:
+      - NODE_ENV=production
+
+  web-socket:
+    image: ${DOCKERHUB_IMAGE_PREFIX}-web-socket:${IMAGE_TAG}
+    container_name: opex-web-socket
+    restart: always
+    ports:
+      - "3052:8080"
+    env_file: .env.production
+    environment:
+      - NODE_ENV=production
+      - WS_PORT=8080
+
+  poller:
+    image: ${DOCKERHUB_IMAGE_PREFIX}-poller:${IMAGE_TAG}
+    container_name: opex-poller
+    restart: always
+    env_file: .env.production
+    environment:
+      - NODE_ENV=production
+
+  redis:
+    image: redis:alpine
+    container_name: opex-redis
+    restart: always
+    ports:
+      - "3053:6379"
+
+  mongo:
+    image: mongo:latest
+    container_name: opex-mongo
+    restart: always
+    ports:
+      - "3054:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:

@@ -116,13 +116,7 @@ export default function CandlesChart({ symbol, decimal = 2 }: Props) {
     });
     ro.observe(containerRef.current);
 
-    const onThemeChange = () => {
-      chart.applyOptions({ layout: getLayout() });
-    };
-    window.addEventListener("themechange", onThemeChange);
-
     return () => {
-      window.removeEventListener("themechange", onThemeChange);
       ro.disconnect();
       chart.remove();
       chartRef.current = null;
