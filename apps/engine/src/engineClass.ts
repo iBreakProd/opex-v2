@@ -419,11 +419,10 @@ export class Engine {
             ? assetPrice - order.openPrice
             : order.openPrice - assetPrice;
 
-        const pnl = (priceChange * order.leverage * order.quantity) / 10 ** 4;
+        const pnl = (priceChange * order.quantity) / 10 ** 4;
         const pnlInt = fixed4ToInt(pnl);
 
-        const lossTakingCapacity = order.margin / order.leverage;
-        const lossTakingCapacityInt = fixed4ToInt(lossTakingCapacity);
+        const lossTakingCapacityInt = order.margin;
 
         // console.log(`\n\n[Engine] Check PnL User: ${userId}, Order: ${order.id}, PnL: ${pnlInt}, Capacity: ${lossTakingCapacityInt}`);
 
@@ -645,7 +644,7 @@ export class Engine {
       priceChange = order.openPrice - closePrice;
     }
 
-    pnl = (priceChange * order.leverage * order.quantity) / 10 ** 4;
+    pnl = (priceChange * order.quantity) / 10 ** 4;
     const pnlInt = fixed4ToInt(pnl);
     console.log(`\n\n[Engine] Trade Close PnL: ${pnl}, Int: ${pnlInt}`);
 

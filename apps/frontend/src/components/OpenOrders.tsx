@@ -93,7 +93,7 @@ export default function OpenOrders() {
                   r.pnlDec >= 0 ? "text-chart-green" : "text-chart-red"
                 }`}
               >
-                {r.pnlDec > 0 ? "+" : ""}{(r.pnlDec * r.leverage).toFixed(r.decimal)}
+                {r.pnlDec > 0 ? "+" : ""}{(r.pnlDec).toFixed(r.decimal)}
               </td>
               <td className="p-3 text-right">
                 <button
