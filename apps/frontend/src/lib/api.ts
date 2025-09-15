@@ -1,12 +1,8 @@
 import axios from "axios";
 
 function resolveProdBase(): string | undefined {
-  const envBase = (import.meta.env.VITE_API_BASE as string | undefined)?.trim();
+  const envBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
   if (envBase) return envBase;
-  if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
-    return `${protocol}//${hostname}:3001/api/v1`;
-  }
   return undefined;
 }
 

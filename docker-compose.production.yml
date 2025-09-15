@@ -14,7 +14,7 @@ services:
     restart: always
     ports:
       - "3050:3000"
-    env_file: .env.production
+    env_file: .env.opex.production
     environment:
       - NODE_ENV=production
       - HTTP_PORT=3000
@@ -23,7 +23,7 @@ services:
     image: ${DOCKERHUB_IMAGE_PREFIX}-engine:${IMAGE_TAG}
     container_name: opex-engine
     restart: always
-    env_file: .env.production
+    env_file: .env.opex.production
     environment:
       - NODE_ENV=production
 
@@ -33,7 +33,7 @@ services:
     restart: always
     ports:
       - "3052:8080"
-    env_file: .env.production
+    env_file: .env.opex.production
     environment:
       - NODE_ENV=production
       - WS_PORT=8080
@@ -42,7 +42,7 @@ services:
     image: ${DOCKERHUB_IMAGE_PREFIX}-poller:${IMAGE_TAG}
     container_name: opex-poller
     restart: always
-    env_file: .env.production
+    env_file: .env.opex.production
     environment:
       - NODE_ENV=production
 
