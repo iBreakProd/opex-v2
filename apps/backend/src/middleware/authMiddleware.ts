@@ -7,11 +7,11 @@ export const authMiddleware = (
   res: Response,
   next: NextFunction
 ) => {
-  const jwtToken = req.cookies.jwt;
+  const jwtToken = req.cookies?.jwt;
 
   const decodedToken = jwt.verify(jwtToken, process.env.JWT_SECRET!) as string;
 
-  if (!decodedToken) {
+  if (!jwtToken || !decodedToken) {
     res.status(401).json({
       message: "User not verified",
     });

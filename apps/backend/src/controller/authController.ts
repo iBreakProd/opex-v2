@@ -112,7 +112,7 @@ export const signinController = async (req: Request, res: Response) => {
 
     await responseLoopObj.waitForResponse(reqId);
 
-    res.cookie("jwt", token);
+    res.cookie("jwt", token, { httpOnly: true, secure: true, sameSite: 'strict' });
     console.log(process.env.CORS_ORIGIN);
     res.redirect(new URL("/#/trade", process.env.CORS_ORIGIN).toString());
     return;
