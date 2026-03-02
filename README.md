@@ -4,7 +4,10 @@
 
 ## 🎥 Demo Video
 
-> *(Add links to demo videos/screenshots here)*
+<a href="https://youtu.be/bcTubX0a9KQ" target="_blank">
+  <img src="https://img.youtube.com/vi/bcTubX0a9KQ/maxresdefault.jpg" width="560" alt="Opex - The Trading App">
+</a>  
+<p><b>Opex - The Trading App</b></p>
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
