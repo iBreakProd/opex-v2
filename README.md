@@ -163,7 +163,7 @@ The `apps/engine` service is the core of Opex-v2. It sits asynchronously behind 
 
 ### Sequential State Machine
 Because the engine holds the active state in memory for performance, it operates basically as a single-threaded consumer of the unified Redis Stream. This ensures strict ordering of events:
-1. Trade Opens
+1. Trade Opens 
 2. Trade Closes
 3. Price Updates (Liquidation checks)
 
