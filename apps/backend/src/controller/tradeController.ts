@@ -180,10 +180,15 @@ export const closeTradeController = async (req: Request, res: Response) => {
     let openOrders: unknown = undefined;
     let usdBalance: unknown = engineUsdBalance;
     try {
-      const ordersResult = await fetchOpenOrders(userId);
-      openOrders = ordersResult;
       if (!usdBalance) {
-        usdBalance = await fetchUsdBalance(userId);
+        const [ordersResult, balResult] = await Promise.all([
+          fetchOpenOrders(userId),
+          fetchUsdBalance(userId),
+        ]);
+        openOrders = ordersResult;
+        usdBalance = balResult;
+      } else {
+        openOrders = await fetchOpenOrders(userId);
       }
     } catch (stateErr) {
       logTradeFailure("close.state-refresh", stateErr);

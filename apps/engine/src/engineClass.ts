@@ -621,7 +621,14 @@ export class Engine {
       userId,
     };
 
-    try {
+    this.userBalances[userId] = newUserBal;
+    this.openOrders[userId] = this.openOrders[userId]!.filter(
+      (o) => o.id !== orderId
+    );
+
+    this.publishUserStateChanged(userId);
+
+    const persistTrade = async () => {
       await db.transaction(async (tx) => {
         await tx.insert(schema.existingTrades).values(closedOrder);
         await tx
@@ -632,51 +639,15 @@ export class Engine {
           })
           .where(eq(schema.users.id as any, userId) as any);
       });
-    } catch (dbErr) {
-      const raw =
-        dbErr instanceof Error ? dbErr.message : String(dbErr ?? "");
-      const code =
-        dbErr &&
-        typeof dbErr === "object" &&
-        "code" in dbErr &&
-        typeof (dbErr as { code: string }).code === "string"
-          ? (dbErr as { code: string }).code
-          : "";
-      console.error("\n\n[Engine] Failed to persist trade close", dbErr);
+    };
 
-      const isDuplicateKey =
-        code === "23505" ||
-        /unique|duplicate/i.test(raw);
-      if (isDuplicateKey) {
-        this.userBalances[userId] = newUserBal;
-        this.openOrders[userId] = this.openOrders[userId]!.filter(
-          (o) => o.id !== orderId
-        );
-        this.publishUserStateChanged(userId);
-        return {
-          type: "trade-close-ack",
-          reqId: msg.reqId,
-          payload: {
-            message: "Order Closed",
-            orderId,
-            userBal: newUserBal,
-          },
-        };
+    this.commitWithRetry(persistTrade, 3).catch((dbErr: unknown) => {
+      const raw = dbErr instanceof Error ? dbErr.message : String(dbErr ?? "");
+      const isDuplicateKey = raw.includes("23505") || /unique|duplicate/i.test(raw);
+      if (!isDuplicateKey) {
+        console.error("\n\n[CRITICAL ERROR] Engine Failed to persist trade close entirely after retries. Data out of sync!", dbErr);
       }
-
-      return {
-        type: "trade-close-err",
-        reqId: msg.reqId,
-        payload: { message: "Failed to save trade" },
-      };
-    }
-
-    this.userBalances[userId] = newUserBal;
-    this.openOrders[userId] = this.openOrders[userId]!.filter(
-      (o) => o.id !== orderId
-    );
-
-    this.publishUserStateChanged(userId);
+    });
 
     return {
       type: "trade-close-ack",
@@ -745,5 +716,36 @@ export class Engine {
       reqId: msg.reqId,
       payload: { trades },
     };
+  }
+
+  private async commitWithRetry(
+    operation: () => Promise<void>,
+    maxRetries: number = 3,
+    baseDelayMs: number = 500
+  ): Promise<void> {
+    let attempt = 0;
+    while (attempt < maxRetries) {
+      try {
+        await operation();
+        return;
+      } catch (err) {
+        attempt++;
+        const raw = err instanceof Error ? err.message : String(err ?? "");
+        const isDuplicateKey = raw.includes("23505") || /unique|duplicate/i.test(raw);
+
+        if (isDuplicateKey) {
+          throw err; 
+        }
+
+        console.warn(`[Engine] DB Operation failed (Attempt ${attempt}/${maxRetries}):`, err);
+
+        if (attempt >= maxRetries) {
+          throw err;
+        }
+
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
   }
 }

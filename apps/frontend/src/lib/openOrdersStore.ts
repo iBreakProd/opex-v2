@@ -62,8 +62,20 @@ export function useCloseOrder() {
       usdBalance?: { balance: number; decimal: number };
     },
     unknown,
-    string
+    string,
+    { previousOrders: Record<string, OpenOrder> }
   >({
+    onMutate: async (orderId: string) => {
+      await qc.cancelQueries({ queryKey: ["openOrders"] });
+      const previousOrders = { ...useOpenOrdersStore.getState().ordersById };
+      useOpenOrdersStore.getState().remove(orderId);
+      return { previousOrders };
+    },
+    onError: (_err, _orderId, context) => {
+      if (context?.previousOrders) {
+        useOpenOrdersStore.getState().setAll(Object.values(context.previousOrders));
+      }
+    },
     mutationFn: async (orderId: string) => {
       const { data } = await api.post("/trade/close", { orderId });
       return data as {
