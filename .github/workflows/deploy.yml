@@ -97,13 +97,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Create app directory on VM
+      - name: Create opex directory on VM
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SSH_IP }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: mkdir -p ~/app
+          script: mkdir -p ~/opex
 
       - name: Copy docker-compose to vm
         uses: appleboy/scp-action@v1
@@ -112,7 +112,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "docker-compose.production.yml"
-          target: "~/app/"
+          target: "~/opex/"
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -121,7 +121,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd ~/app
+            cd ~/opex
             echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
 
             rm -f .env.opex.production
