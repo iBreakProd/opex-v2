@@ -66,27 +66,27 @@ graph LR
         BP[Backpack Exchange WS]
     end
 
-    FE -->|REST (Trade, Auth, History)| API
-    FE -->|WebSocket Connection| WS
+    FE -->|"REST (Trade, Auth, History)"| API
+    FE -->|"WebSocket Connection"| WS
 
-    POL -->|Subscribe Tickers| BP
-    POL -->|Publish ws:price:update| RD
-    POL -->|Push Price Update (Stream)| RD
+    POL -->|"Subscribe Tickers"| BP
+    POL -->|"Publish ws:price:update"| RD
+    POL -->|"Push Price Update (Stream)"| RD
 
-    API -->|Read History| PG
-    API -->|Push Trade Cmds (Stream)| RD
-    RD -->|XREAD Trade Cmds & Prices| ENG
-    ENG -->|Send Acks Responses| RD
-    RD -->|Acknowledge| API
+    API -->|"Read History"| PG
+    API -->|"Push Trade Cmds (Stream)"| RD
+    RD -->|"XREAD Trade Cmds & Prices"| ENG
+    ENG -->|"Send Acks Responses"| RD
+    RD -->|"Acknowledge"| API
 
-    ENG -->|Persist Liquidations/Closes| PG
-    ENG -->|Push User State Invalidations| RD
+    ENG -->|"Persist Liquidations/Closes"| PG
+    ENG -->|"Push User State Invalidations"| RD
     
-    ENG -->|Periodic State Snapshot| MDB
-    ENG -->|Load State on Boot| MDB
+    ENG -->|"Periodic State Snapshot"| MDB
+    ENG -->|"Load State on Boot"| MDB
 
-    RD -->|Subscribe Prices/State| WS
-    WS -->|Push Updates| FE
+    RD -->|"Subscribe Prices/State"| WS
+    WS -->|"Push Updates"| FE
 ```
 
 ### End-to-End Data Flows
