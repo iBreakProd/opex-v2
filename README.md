@@ -48,7 +48,7 @@ graph LR
     end
 
     subgraph Core
-        ENG[Trading Engine (In-Memory)]
+        ENG["Trading Engine (In-Memory)"]
     end
 
     subgraph Real-Time Services
