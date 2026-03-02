@@ -27,7 +27,7 @@ function FlashPrice({ value, decimal, isSelected }: { value: number; decimal: nu
 
 export default function QuotesTable() {
   const { quotes, selectedSymbol, setSelectedSymbol } = useQuotesStore();
-  // Ensure consistent order
+
   const symbols = ["BTCUSDC", "ETHUSDC", "SOLUSDC"];
 
   return (
@@ -73,7 +73,7 @@ export default function QuotesTable() {
                         <div className="animate-pulse h-8 w-24 bg-current opacity-10 rounded"></div>
                     )}
                     
-                    {/* Active Indicator Strip */}
+
                     {isSelected && (
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-chart-green"></div>
                     )}

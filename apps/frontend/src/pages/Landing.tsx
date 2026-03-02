@@ -1,18 +1,24 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  Grid3x3, 
   Terminal, 
   ArrowRight, 
   Bolt, 
   Lock, 
   ChartNoAxesCombined, 
-  Headset, 
-  MonitorPlay,
-  MessageSquare
+  Headset
 } from "lucide-react";
+import { FaGithub, FaLinkedin, FaXTwitter, FaGlobe, FaEnvelope } from "react-icons/fa6";
 
 export default function Landing() {
   const navigate = useNavigate();
+  const [emailCopied, setEmailCopied] = useState(false);
+
+  const handleCopyEmail = () => {
+    navigator.clipboard.writeText("harshit@hrsht.me");
+    setEmailCopied(true);
+    setTimeout(() => setEmailCopied(false), 2000);
+  };
 
   return (
     <div className="bg-background-light text-text-main font-mono-retro antialiased overflow-x-hidden">
@@ -22,15 +28,15 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-2 group cursor-pointer border-2 border-transparent hover:border-text-main p-1 transition-all">
-              <div className="w-10 h-10 bg-text-main flex items-center justify-center shadow-brutal">
-                <Grid3x3 className="text-background-light w-6 h-6" />
+              <div className="w-10 h-10 bg-text-main flex items-center justify-center p-1">
+                <img src="/opex.png" alt="OPEX Logo" className="w-full h-full object-contain" />
               </div>
               <span className="font-serif-heading font-bold text-3xl tracking-tight text-text-main italic">OPEX</span>
             </div>
             <div className="hidden md:flex items-center gap-8">
-              <a className="font-mono-retro font-bold text-sm uppercase hover:underline decoration-2 underline-offset-4 decoration-primary cursor-pointer">Markets</a>
-              <a className="font-mono-retro font-bold text-sm uppercase hover:underline decoration-2 underline-offset-4 decoration-primary cursor-pointer">Tools</a>
-              <a className="font-mono-retro font-bold text-sm uppercase hover:underline decoration-2 underline-offset-4 decoration-primary cursor-pointer">Learn</a>
+              <button onClick={() => navigate("/docs")} className="font-mono-retro font-bold text-sm hover:text-primary transition-colors flex items-center gap-2 border-2 border-transparent hover:border-text-main p-2">
+                <Terminal className="w-4 h-4" /> SYSTEM_DOCS
+              </button>
             </div>
             <div className="flex items-center gap-4">
               <button onClick={() => navigate("/login")} className="hidden md:block font-mono-retro font-bold text-sm underline decoration-2 underline-offset-4 hover:text-primary bg-transparent border-none p-0">LOG IN</button>
@@ -129,7 +135,7 @@ export default function Landing() {
               <div className="ticker-item">XAU <span className="text-chart-green">▲ 2,045</span></div>
               <div className="ticker-item">TSLA <span className="text-chart-red">▼ 210.50</span></div>
               <div className="ticker-item">AAPL <span className="text-chart-green">▲ 195.20</span></div>
-              {/* Duplicate for seamless loop */}
+
               <div className="ticker-item">BTC <span className="text-chart-green">▲ 42,910</span></div>
               <div className="ticker-item">ETH <span className="text-chart-red">▼ 2,240</span></div>
               <div className="ticker-item">SPX <span className="text-chart-green">▲ 4,890</span></div>
@@ -279,54 +285,47 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
             <div className="col-span-1 md:col-span-1">
               <div className="flex items-center gap-2 mb-6 border-b-2 border-background-light/20 pb-4 w-fit">
-                <Grid3x3 className="text-primary w-6 h-6" />
+                <img src="/opex.png" alt="OPEX Logo" className="w-6 h-6 object-contain" />
                 <span className="font-serif-heading font-bold text-2xl text-background-light">OPEX</span>
               </div>
               <p className="font-mono-retro text-xs leading-relaxed mb-6 opacity-70">
                 // SYSTEM STATUS: ONLINE<br/>
-                Providing brutal execution for the modern trader since 2023.
+                Providing brutal execution for the modern trader since 2025.
+              </p>
+            </div>
+            <div className="md:col-start-4 flex flex-col items-start md:items-end gap-4 font-mono-retro">
+              <p className="text-sm">
+                Built to learn by <a href="https://hrsht.me" target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold">Harshit</a>
               </p>
               <div className="flex gap-4">
-                <a className="bg-background-light text-text-main p-2 hover:bg-primary hover:text-white transition-colors border border-transparent hover:border-white"><Grid3x3 className="w-5 h-5" /></a>
-                <a className="bg-background-light text-text-main p-2 hover:bg-primary hover:text-white transition-colors border border-transparent hover:border-white"><MonitorPlay className="w-5 h-5" /></a>
-                <a className="bg-background-light text-text-main p-2 hover:bg-primary hover:text-white transition-colors border border-transparent hover:border-white"><MessageSquare className="w-5 h-5" /></a>
+                <a href="https://github.com/iBreakProd" target="_blank" rel="noreferrer" className="bg-background-light text-text-main p-2 hover:bg-primary hover:text-white transition-colors border border-transparent hover:border-white" title="GitHub"><FaGithub className="w-5 h-5" /></a>
+                <a href="https://www.linkedin.com/in/ibreakprod/" target="_blank" rel="noreferrer" className="bg-background-light text-text-main p-2 hover:bg-primary hover:text-white transition-colors border border-transparent hover:border-white" title="LinkedIn"><FaLinkedin className="w-5 h-5" /></a>
+                <a href="https://x.com/I_Break_Prod" target="_blank" rel="noreferrer" className="bg-background-light text-text-main p-2 hover:bg-primary hover:text-white transition-colors border border-transparent hover:border-white" title="X (Twitter)"><FaXTwitter className="w-5 h-5" /></a>
+                <a href="https://hrsht.me" target="_blank" rel="noreferrer" className="bg-background-light text-text-main p-2 hover:bg-primary hover:text-white transition-colors border border-transparent hover:border-white" title="Website"><FaGlobe className="w-5 h-5" /></a>
+                <div className="relative">
+                  <a onClick={handleCopyEmail} className="bg-background-light text-text-main p-2 flex items-center justify-center hover:bg-primary hover:text-white transition-colors border border-transparent hover:border-white cursor-pointer" title="Copy Email">
+                    <FaEnvelope className="w-5 h-5" />
+                  </a>
+                  {emailCopied && (
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap bg-primary text-white border-2 border-text-main px-2 py-1 text-[10px] font-bold uppercase shadow-brutal z-10 pointer-events-none">
+                      Copied!
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="font-mono-retro">
-              <h4 className="font-bold text-primary mb-6 text-sm uppercase border-l-2 border-primary pl-2">Markets</h4>
-              <ul className="space-y-3 text-xs opacity-80">
-                <li><a className="hover:text-primary hover:translate-x-1 transition-all inline-block">&gt; Forex</a></li>
-                <li><a className="hover:text-primary hover:translate-x-1 transition-all inline-block">&gt; Indices</a></li>
-                <li><a className="hover:text-primary hover:translate-x-1 transition-all inline-block">&gt; Commodities</a></li>
-                <li><a className="hover:text-primary hover:translate-x-1 transition-all inline-block">&gt; Crypto</a></li>
-              </ul>
-            </div>
-            <div className="font-mono-retro">
-              <h4 className="font-bold text-primary mb-6 text-sm uppercase border-l-2 border-primary pl-2">Platform</h4>
-              <ul className="space-y-3 text-xs opacity-80">
-                <li><a className="hover:text-primary hover:translate-x-1 transition-all inline-block">&gt; Web Trader</a></li>
-                <li><a className="hover:text-primary hover:translate-x-1 transition-all inline-block">&gt; Terminal App</a></li>
-                <li><a className="hover:text-primary hover:translate-x-1 transition-all inline-block">&gt; API Keys</a></li>
-                <li><a className="hover:text-primary hover:translate-x-1 transition-all inline-block">&gt; Server Status</a></li>
-              </ul>
-            </div>
-            <div className="font-mono-retro">
-              <h4 className="font-bold text-primary mb-6 text-sm uppercase border-l-2 border-primary pl-2">Legal</h4>
-              <ul className="space-y-3 text-xs opacity-80">
-                <li><a className="hover:text-primary hover:translate-x-1 transition-all inline-block">&gt; Privacy Policy</a></li>
-                <li><a className="hover:text-primary hover:translate-x-1 transition-all inline-block">&gt; Terms of Service</a></li>
-                <li><a className="hover:text-primary hover:translate-x-1 transition-all inline-block">&gt; Risk Disclosure</a></li>
-              </ul>
-            </div>
           </div>
-          <div className="border-t border-background-light/20 pt-8 text-[10px] leading-relaxed opacity-50 font-mono-retro">
-            <p className="mb-4 font-bold uppercase tracking-wider text-chart-red">Risk Warning:</p>
-            <p>
-              CFDs are complex instruments and come with a high risk of losing money rapidly due to leverage. 74-89% of retail investor accounts lose money when trading CFDs with this provider. You should consider whether you understand how CFDs work and whether you can afford to take the high risk of losing your money.
-            </p>
-            <p className="mt-4">
-              © 2023 Opex Ltd. All rights reserved.
-            </p>
+          <div className="border-t border-background-light/20 pt-8 text-[10px] leading-relaxed opacity-50 font-mono-retro flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <div className="max-w-2xl">
+              <p className="mb-4 font-bold uppercase tracking-wider text-chart-red">Risk Warning:</p>
+              <p>
+                CFDs are complex instruments and come with a high risk of losing money rapidly due to leverage. 74-89% of retail investor accounts lose money when trading CFDs with this provider. You should consider whether you understand how CFDs work and whether you can afford to take the high risk of losing your money.
+              </p>
+              <p className="mt-4">
+                © 2025 OPEX. All rights reserved.
+              </p>
+            </div>
+            
           </div>
         </div>
       </footer>

@@ -7,6 +7,7 @@ import {
   doublePrecision,
   timestamp,
   pgEnum,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const orderTypeEnum = pgEnum("order_type", ["short", "long"]);
@@ -37,5 +38,9 @@ export const existingTrades = pgTable("existing_trades", {
   createdAt: timestamp("created_at", { withTimezone: false })
     .notNull()
     .defaultNow(),
+}, (table) => {
+  return {
+    userIdCreatedAtIndex: index("user_id_created_at_idx").on(table.userId, table.createdAt),
+  };
 });
 

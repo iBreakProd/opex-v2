@@ -1,19 +1,21 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { useSessionProbe } from "@/lib/session";
+import { useAuthCheck } from "@/lib/useAuthCheck";
 
 export default function ProtectedRoute() {
-  const { isLoading, isSuccess } = useSessionProbe();
+  const { isLoading, isSuccess } = useAuthCheck();
 
   if (isLoading) {
     return (
-      <div className="mt-12 text-center text-muted-foreground">
-        Checking session…
+      <div className="min-h-screen bg-background-light font-mono-retro flex items-center justify-center">
+        <div className="text-text-main font-bold uppercase animate-pulse">
+          Verifying Identity...
+        </div>
       </div>
     );
   }
 
   if (!isSuccess) {
-    return <Navigate to="/unauthorized" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return <Outlet />;

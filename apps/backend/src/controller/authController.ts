@@ -14,7 +14,6 @@ import "dotenv/config";
 
 export const emailGenController = async (req: Request, res: Response) => {
   const validInput = authBodySchema.safeParse(req.body);
-
   if (!validInput.success) {
     res.status(404).json({
       message: "Invalid input",
@@ -33,7 +32,7 @@ export const emailGenController = async (req: Request, res: Response) => {
       .where(eq(schema.users.email as any, email) as any)
       .limit(1);
 
-    let user = userFound;
+      let user = userFound;
 
     if (!userFound) {
       const [created] = await db
@@ -53,22 +52,17 @@ export const emailGenController = async (req: Request, res: Response) => {
       return;
     }
     const jwtToken = jwt.sign(user!.id, secret);
-
-    console.log(`\n\n[Auth] Pushing user-signup to stream for User: ${user!.id}, ReqId: ${reqId}`);
     await httpPusher.xAdd("stream:app:info", "*", {
       type: "user-signup",
       user: JSON.stringify(user),
       reqId,
     });
-    console.log(`\n\n[Auth] Successfully pushed user-signup to stream. ReqId: ${reqId}`);
 
     await responseLoopObj.waitForResponse(reqId);
 
     const { data, error } = await sendEmail(user!.email, jwtToken);
 
     if (error) {
-      console.log(error, "error");
-      console.log("\n\nsend email fails");
       res.status(400).json({ message: "Could not send email" });
       return;
     }
@@ -78,7 +72,6 @@ export const emailGenController = async (req: Request, res: Response) => {
     });
     return;
   } catch (err) {
-    console.log(err);
     res.status(400).json({
       message: "Could not sign up, request timed out",
     });
@@ -90,7 +83,6 @@ export const signinController = async (req: Request, res: Response) => {
   const token = req.query.token?.toString();
 
   if (!token) {
-    console.log("\n\nToken not found");
     res.status(411).json({
       message: "Token not found",
     });
@@ -120,13 +112,11 @@ export const signinController = async (req: Request, res: Response) => {
       });
       return;
     }
-    console.log(`\n\n[Auth] Pushing user-signin to stream for User: ${userFound.id}, ReqId: ${reqId}`);
     await httpPusher.xAdd("stream:app:info", "*", {
       type: "user-signin",
       user: JSON.stringify(userFound),
       reqId,
     });
-    console.log(`\n\n[Auth] Successfully pushed user-signin to stream. ReqId: ${reqId}`);
 
     await responseLoopObj.waitForResponse(reqId);
 
@@ -150,10 +140,30 @@ export const signinController = async (req: Request, res: Response) => {
       });
       return;
     }
-    console.warn("\n\n[auth] signin failed", err);
     res.status(400).json({
       message: "Could not sign in, request timed out",
     });
     return;
   }
+};
+
+export const whoamiController = async (req: Request, res: Response) => {
+  const userId = (req as unknown as { userId: string }).userId;
+
+  res.json({
+    message: "Authenticated",
+    userId,
+  });
+};
+
+export const logoutController = async (req: Request, res: Response) => {
+  const isProduction = process.env.NODE_ENV === "production";
+  res.clearCookie("jwt", {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "lax",
+  });
+  res.json({
+    message: "Logged out successfully",
+  });
 };

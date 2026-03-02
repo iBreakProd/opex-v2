@@ -15,6 +15,13 @@
       "when": 1771405281090,
       "tag": "0001_plain_orphan",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772461246515,
+      "tag": "0002_jittery_star_brand",
+      "breakpoints": true
     }
   ]
 }

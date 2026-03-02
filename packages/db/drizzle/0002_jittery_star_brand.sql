@@ -1,0 +1,1 @@
+CREATE INDEX "user_id_created_at_idx" ON "existing_trades" USING btree ("user_id","created_at");

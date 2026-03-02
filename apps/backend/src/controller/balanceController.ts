@@ -10,13 +10,11 @@ export const getAssetBalanceController = async (
   const reqId = Date.now().toString() + crypto.randomUUID();
 
   try {
-    console.log(`\n\n[Balance] Pushing get-asset-bal to stream for User: ${userId}, ReqId: ${reqId}`);
     await httpPusher.xAdd("stream:app:info", "*", {
       type: "get-asset-bal",
       reqId,
       userId,
     });
-    console.log(`\n\n[Balance] Successfully pushed get-asset-bal to stream. ReqId: ${reqId}`);
 
     const data = await responseLoopObj.waitForResponse(reqId);
     res.json({
@@ -24,7 +22,6 @@ export const getAssetBalanceController = async (
       data,
     });
   } catch (err) {
-    console.warn("\n\n[balance] get-asset-bal request failed", err);
     res.status(411).json({ message: "Could not get the asset balance" });
   }
 };
@@ -34,13 +31,11 @@ export const getUsdBalanceController = async (req: Request, res: Response) => {
   const reqId = Date.now().toString() + crypto.randomUUID();
 
   try {
-    console.log(`\n\n[Balance] Pushing get-user-bal to stream for User: ${userId}, ReqId: ${reqId}`);
     await httpPusher.xAdd("stream:app:info", "*", {
       type: "get-user-bal",
       reqId,
       userId,
     });
-    console.log(`\n\n[Balance] Successfully pushed get-user-bal to stream. ReqId: ${reqId}`);
 
     const data = await responseLoopObj.waitForResponse(reqId);
 
@@ -50,7 +45,6 @@ export const getUsdBalanceController = async (req: Request, res: Response) => {
       userId,
     });
   } catch (err) {
-    console.warn("\n\n[balance] get-usd-bal request failed", err);
     res.status(411).json({ message: "Could not get the USD balance" });
   }
 };

@@ -39,11 +39,5 @@ export function mapTradeErrorToUserMessage(err: unknown): string {
 }
 
 export function logTradeFailure(context: string, err: unknown) {
-  const reason = normalizeReason(err);
-  if (reason) {
-    console.warn(`\n\n[trade] ${context} failed: ${reason}`);
-  } else {
-    console.warn(`\n\n[trade] ${context} failed`, err);
-  }
 }
 

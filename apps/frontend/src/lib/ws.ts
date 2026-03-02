@@ -16,19 +16,14 @@ class WSClient {
   private currentUserId: string | null = null;
   private isConnecting = false;
   private isVisibilityListenerAdded = false;
-  private instanceId = Math.random().toString(36).substring(7);
 
   constructor() {
-    if (import.meta.env.DEV) console.log(`\n\n[ws] WSClient initialized. ID: ${this.instanceId}`);
   }
 
   connect() {
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
-      if (import.meta.env.DEV) console.log(`\n\n[ws] [${this.instanceId}] Connection already active or in progress`);
       return;
     }
-    
-    if (import.meta.env.DEV) console.log(`\n\n[ws] [${this.instanceId}] Connect called`);
     this.open();
     if (!this.isVisibilityListenerAdded) {
         document.addEventListener("visibilitychange", this.onVisChange);
@@ -45,21 +40,18 @@ class WSClient {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.currentUserId) return;
     try {
       this.ws.send(JSON.stringify({ type: "identity", userId: this.currentUserId }));
-      if (import.meta.env.DEV) console.log(`\n\n[ws] Identified as ${this.currentUserId}`);
     } catch {
-      // ignore
+      // Ignore send errors
     }
   }
 
   private open() {
     this.isConnecting = true;
-    if (import.meta.env.DEV) console.log("\n\n[ws] Opening connection to", this.url);
     
     this.ws = new WebSocket(this.url);
     
     this.ws.onopen = () => {
       this.isConnecting = false;
-      if (import.meta.env.DEV) console.log("\n\n[ws] Connected");
       this.retryMs = 1000;
       this.sendIdentity();
     };
@@ -72,22 +64,19 @@ class WSClient {
           return;
         }
         this.listeners.forEach((l) => l(data as QuotePayload));
-      } catch (err) {
-        if (import.meta.env.DEV) {
-          console.warn("\n\n[ws] Invalid message", err);
-        }
+      } catch {
+        // Ignore parse errors
       }
     };
 
     this.ws.onclose = () => {
       this.isConnecting = false;
       this.ws = null;
-      if (import.meta.env.DEV) console.log("\n\n[ws] Closed. Reconnecting in", this.retryMs, "ms");
       setTimeout(() => {
         if (document.hidden) return;
         this.open();
       }, this.retryMs);
-      this.retryMs = Math.min(this.retryMs * 2, 30000); // Exponential backoff
+      this.retryMs = Math.min(this.retryMs * 2, 30000); 
     };
 
     this.ws.onerror = (err) => {

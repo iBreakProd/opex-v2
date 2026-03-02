@@ -1,23 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
+import { useAuthCheck } from "@/lib/useAuthCheck";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const { mutate, isPending, isSuccess, error } = useMutation({
     mutationFn: async () => {
       const cleanEmail = email.trim();
-      console.log(`\n\n[Frontend] Attempting Login/Signup for: ${cleanEmail}`);
+
       await api.post("/auth/signup", { email: cleanEmail });
-      console.log(`\n\n[Frontend] Login/Signup Request Sent.`);
+
     },
     onSuccess: () => {
-      console.log(`\n\n[Frontend] Login/Signup Success.`);
+
     },
     onError: (err) => {
         console.error(`\n\n[Frontend] Login/Signup Failed:`, err);
     }
   });
+
+  const { isSuccess: isAuthSuccess } = useAuthCheck();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthSuccess) {
+      navigate("/trade", { replace: true });
+    }
+  }, [isAuthSuccess, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-6 bg-background-light font-mono-retro">

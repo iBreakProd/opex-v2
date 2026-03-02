@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { responseLoopObj } from "../utils/responseLoop";
 import { closeOrderSchema, createOrderSchema } from "@repo/types/zodSchema";
 import { db, schema } from "@repo/db/client";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import {
   logTradeFailure,
   mapTradeErrorToUserMessage,
@@ -48,7 +48,6 @@ export const openTradeController = async (req: Request, res: Response) => {
   const validInput = createOrderSchema.safeParse(req.body);
 
   if (!validInput.success) {
-    console.warn("\n\n[Backend] Invalid trade request:", validInput.error);
     res.status(411).json({
       message:
         "Invalid trade request. Please check asset, leverage, quantity, slippage, and price.",
@@ -59,52 +58,40 @@ export const openTradeController = async (req: Request, res: Response) => {
   const userId = (req as unknown as { userId: string }).userId;
   const reqId = Date.now().toString() + crypto.randomUUID();
   const tradeInfo = JSON.stringify(validInput.data);
-  console.log(`\n\n[Backend] Open Trade Request. User: ${userId}, ReqId: ${reqId}`);
-  console.log(`\n\n[Backend] Trade Payload (Stringified): ${tradeInfo}`);
 
   try {
-    console.time(`[Backend] Trade Latency ${reqId}`);
-    console.log(`\n\n[Backend] Pushing trade-open to stream. ReqId: ${reqId}`);
     await tradePusher.xAdd("stream:app:info", "*", {
       type: "trade-open",
       tradeInfo,
       userId,
       reqId,
     });
-    console.log(`\n\n[Backend] Trade Open Sent to Stream. ReqId: ${reqId}`);
 
     const response = await responseLoopObj.waitForResponse(reqId);
-    console.timeEnd(`[Backend] Trade Latency ${reqId}`);
 
     if (response === undefined || response === null || typeof response !== "string") {
-      console.warn(`\n\n[Backend] Trade Response Invalid or Timeout. ReqId: ${reqId}`);
       res
         .status(411)
         .json({ message: "We couldn’t confirm the trade. Please try again." });
       return;
     }
     try {
-      const parsed = JSON.parse(response) as { order?: unknown; orderId?: string };
-      const { order, orderId } = parsed;
+      const parsed = JSON.parse(response) as { order?: unknown; orderId?: string; message?: string };
+      const { order, orderId, message } = parsed;
       if (order === undefined || orderId === undefined) {
-        console.warn(`\n\n[Backend] Trade Response Parsing Failed (Missing order/id). Resp: ${response}`);
         res
           .status(411)
-          .json({ message: "We couldn’t confirm the trade. Please try again." });
+          .json({ message: message || "We couldn’t confirm the trade. Please try again." });
         return;
       }
-
-      console.log(`\n\n[Backend] Trade Executed Successfully. OrderID: ${orderId}`);
 
       let openOrders: unknown = undefined;
       let usdBalance: unknown = undefined;
       try {
-        console.time(`[Backend] State Refresh Latency ${reqId}`);
         const [ordersResult, balResult] = await Promise.all([
           fetchOpenOrders(userId),
           fetchUsdBalance(userId),
         ]);
-        console.timeEnd(`[Backend] State Refresh Latency ${reqId}`);
         openOrders = ordersResult;
         usdBalance = balResult;
       } catch (stateErr) {
@@ -170,16 +157,24 @@ export const closeTradeController = async (req: Request, res: Response) => {
     const response = await responseLoopObj.waitForResponse(reqId);
 
     let engineUsdBalance: unknown = undefined;
+    let engineMessage: string | undefined = undefined;
     if (typeof response === "string") {
       try {
         const parsed = JSON.parse(response) as {
           userBal?: unknown;
           orderId?: string;
+          message?: string;
         };
         engineUsdBalance = parsed.userBal;
+        engineMessage = parsed.message;
       } catch {
         engineUsdBalance = undefined;
       }
+    }
+
+    if (engineUsdBalance === undefined && engineMessage) {
+      res.status(411).json({ message: engineMessage });
+      return;
     }
 
     let openOrders: unknown = undefined;
@@ -231,13 +226,13 @@ export const fetchClosedTrades = async (req: Request, res: Response) => {
     const trades = await db
       .select()
       .from(schema.existingTrades)
-      .where(eq(schema.existingTrades.userId as any, userId) as any);
+      .where(eq(schema.existingTrades.userId as any, userId) as any)
+      .orderBy(desc(schema.existingTrades.createdAt as any) as any);
 
     res.json({
       trades,
     });
   } catch (err) {
-    console.log(err);
     res.status(411).json({ message: "Failed to fetch closed trades" });
   }
 };

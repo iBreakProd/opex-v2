@@ -1,135 +1,318 @@
-# Turborepo starter
+# Opex-v2
 
-This Turborepo starter is maintained by the Turborepo core team.
+**Opex-v2** is a distributed, service-oriented cryptocurrency perpetuals trading platform. It simulates real-time trading of crypto perpetual contracts (BTC, ETH, SOL) with features like leverage, cross-margin, liquidation, and real-time portfolio updates. Built as a Turborepo monorepo, it features a blazingly fast in-memory matching engine backed by Redis Streams, MongoDB for state snapshots, and PostgreSQL for persistent trade history.
 
-## Using this example
+## 🎥 Demo Video
 
-Run the following command:
+> *(Add links to demo videos/screenshots here)*
 
-```sh
-npx create-turbo@latest
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)
+![Turborepo](https://img.shields.io/badge/Turborepo-EF4444?style=flat&logo=turborepo&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/Neon_Postgres-00E5A0?style=flat&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat&logo=redis&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=flat&logo=mongodb&logoColor=white)
+![Express](https://img.shields.io/badge/Express.js-000000?style=flat&logo=express&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
+
+---
+
+## Table of Contents
+
+1. [High-Level Architecture](#high-level-architecture)
+2. [Tech Stack](#tech-stack)
+3. [Project Structure](#project-structure)
+4. [Engine Architecture (Deep Dive)](#engine-architecture-deep-dive)
+5. [Real-Time Polling & WebSockets](#real-time-polling--websockets)
+6. [Database & Persistence Strategy](#database--persistence-strategy)
+7. [API Reference](#api-reference)
+8. [Frontend Architecture](#frontend-architecture)
+9. [Getting Started](#getting-started)
+10. [Environment Variables](#environment-variables)
+11. [Available Scripts](#available-scripts)
+
+---
+
+## High-Level Architecture
+
+```mermaid
+graph LR
+    subgraph Client
+        FE[React + Vite Frontend]
+    end
+
+    subgraph apps/backend
+        API[Express API]
+    end
+
+    subgraph Core
+        ENG[Trading Engine (In-Memory)]
+    end
+
+    subgraph Real-Time Services
+        POL[apps/poller]
+        WS[apps/web-socket]
+    end
+
+    subgraph Data Stores
+        PG[(Neon Postgres)]
+        RD[(Redis Streams & PubSub)]
+        MDB[(MongoDB)]
+    end
+
+    subgraph External
+        BP[Backpack Exchange WS]
+    end
+
+    FE -->|REST (Trade, Auth, History)| API
+    FE -->|WebSocket Connection| WS
+
+    POL -->|Subscribe Tickers| BP
+    POL -->|Publish ws:price:update| RD
+    POL -->|Push Price Update (Stream)| RD
+
+    API -->|Read History| PG
+    API -->|Push Trade Cmds (Stream)| RD
+    RD -->|XREAD Trade Cmds & Prices| ENG
+    ENG -->|Send Acks Responses| RD
+    RD -->|Acknowledge| API
+
+    ENG -->|Persist Liquidations/Closes| PG
+    ENG -->|Push User State Invalidations| RD
+    
+    ENG -->|Periodic State Snapshot| MDB
+    ENG -->|Load State on Boot| MDB
+
+    RD -->|Subscribe Prices/State| WS
+    WS -->|Push Updates| FE
 ```
 
-## What's inside?
+### End-to-End Data Flows
 
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
+**Opening a Trade:**
 ```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+User inputs trade details (Leverage, Asset, Size)
+  → POST /api/v1/trade/open
+  → Backend pushes command to Redis Stream (stream:app:info)
+  → Engine pulls from Stream
+  → Checks balance, calculates margin, opens trade in-memory
+  → Engine pushes ACK to Redis Response Stream (stream:engine:response)
+  → Backend resolves HTTP request
+  → Frontend reflects new open order and updated balance
 ```
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
-
+**Real-Time Price Updates & Liquidations:**
 ```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+Poller receives tick from Backpack Exchange
+  → Publishes tick via Redis PubSub (ws:price:update)
+      → WS Server sends tick to UI
+  → Pushes tick to Redis Stream (stream:app:info)
+      → Engine reads tick
+      → Checks if any open positions are below liquidation threshold (-90% Margin)
+      → YES: Closes trade, deducts margin
+          → Persists closure to PostgreSQL
+          → Publishes user state change via Redis PubSub (ws:user:state:{userId})
+          → WS Server notifies specific UI client to refetch balances and trades
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+---
+
+## Tech Stack
+
+| Technology | Role |
+|---|---|
+| **React + Vite** | Frontend SPA, UI, routing |
+| **Node.js + Express** | Backend API and orchestration |
+| **Turborepo + pnpm** | Monorepo build and dependency management |
+| **Neon (Serverless Postgres)** | Primary database (Users, Closed Trades) |
+| **Drizzle ORM** | Type-safe SQL query builder |
+| **Redis** | Stream-based event bus, PubSub for real-time WebSockets |
+| **MongoDB** | Fast serialization and snapshotting of the in-memory engine state |
+| **Docker Compose** | Orchestration for production and local environments |
+
+---
+
+## Project Structure
 
 ```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+opex-v2/
+├── apps/
+│   ├── backend/                # Express REST API (Auth, Trade Routes)
+│   ├── engine/                 # Stateful Matching & Liquidation Engine
+│   ├── poller/                 # Price Oracle (Subscribes to Backpack -> Publishes to Redis)
+│   ├── web-socket/             # WS Server (Pushes Prices & User State to React)
+│   └── frontend/               # React Vite SPA UI
+│
+├── packages/
+│   ├── db/                     # Drizzle schema, migrations, typed db client
+│   ├── redis/                  # Shared Redis connection instances (Queue, PubSub)
+│   ├── types/                  # Shared TypeScript interfaces & Zod schemas
+│   ├── eslint-config/          # Shared linting rules
+│   └── typescript-config/      # Shared TS configurations
+│
+└── docker-compose.production.yml # Docker deployment manifest
 ```
 
-### Remote Caching
+---
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+## Engine Architecture (Deep Dive)
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+The `apps/engine` service is the core of Opex-v2. It sits asynchronously behind a Redis Stream message broker (`stream:app:info`).
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+### Sequential State Machine
+Because the engine holds the active state in memory for performance, it operates basically as a single-threaded consumer of the unified Redis Stream. This ensures strict ordering of events:
+1. Trade Opens
+2. Trade Closes
+3. Price Updates (Liquidation checks)
 
+### Recovery & Resilience
+In the event of an engine crash, rebuilding state from a massive Postgres ledger is slow. Instead:
+- Every 5 seconds, the engine serializes its entire memory map (Prices, Open Orders, User Balances, Last Stream ID) and upserts it as a single JSON blob into **MongoDB**.
+- On startup, the engine queries MongoDB for the last snapshot.
+- It then queries the Redis Stream to replay only the events (from the last consumed ID) that happened *after* the snapshot was taken, achieving virtually instant recovery.
+
+---
+
+## Real-Time Polling & WebSockets
+
+### The Poller (`apps/poller`)
+A lightweight bridging service. It establishes a WebSocket connection to Backpack Exchange, listening for ticker data (e.g., `BTC_USDC_PERP`). 
+- **Fast Path:** It publishes this data immediately to a Redis PubSub channel (`ws:price:update`).
+- **Engine Path:** It simultaneously queues the price data into the Engine's Redis Stream so the engine can orderly process margin impact.
+
+### The WebSocket Server (`apps/web-socket`)
+The WS server scales horizontally. It does not contain game logic. It only:
+1. Subscribes to the global `ws:price:update` channel and broadcasts fast ticker prices to all connected browsers.
+2. Subscribes to patterned user channels (`ws:user:state:*`). If the engine liquidates a user, it pings this user's channel. The WS server forwards this to the user's specific browser connection, triggering the frontend to refetch its `/api/v1/trade/open` endpoints.
+
+---
+
+## Database & Persistence Strategy
+
+### PostgreSQL (via Drizzle ORM)
+Used strictly for persistent, immutable records requiring heavy relational querying later:
+- **`users` table**: Authentication data, core permanent balances.
+- **`existing_trades` table**: Whenever a trade is successfully closed or forcibly liquidated, it is inserted here. This acts as the user's transaction history.
+
+### Redis
+Used for ephemeral state and messaging:
+- **`stream:app:info`**: Primary event log driving the Engine.
+- **`stream:engine:response`**: The acknowledgement stream that the Express API waits on to resolve HTTP calls.
+- **PubSub**: Transient pushing of live prices and state invalidations.
+
+### MongoDB
+Used uniquely for state-snapshotting the Engine to provide rapid boot-ups without querying relational data.
+
+---
+
+## API Reference
+
+### Auth
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/v1/user/signup` | Create User |
+| `POST` | `/api/v1/user/signin` | Authenticate and get JWT cookie |
+| `GET` | `/api/v1/user/whoami` | Verify JWT and get user profile |
+| `POST` | `/api/v1/user/logout` | Clear JWT cookie |
+
+### Balances
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/balance` | Get USD balance |
+| `GET` | `/api/v1/balance/asset` | Get unrealized asset margin balances |
+
+### Trades
+
+| Method | Path | Body | Description |
+|---|---|---|---|
+| `POST` | `/api/v1/trade/open` | `{ asset, type(long/short), leverage, ... }` | Open a position |
+| `GET` | `/api/v1/trade/open` | — | Fetch current active positions |
+| `POST` | `/api/v1/trade/close`| `{ orderId }` | Close an active position |
+| `GET` | `/api/v1/trade/closed`| — | Fetch historical closed/liquidated trades |
+
+---
+
+## Frontend Architecture
+
+**Framework:** React 18 / Vite SPA.
+
+| Concept | Purpose |
+|---|---|
+| **Routing** | React Router (`react-router-dom`) with `ProtectedRoute` wrappers for authenticated views (`/trade`, `/past-orders`). |
+| **State Management** | React Query (`@tanstack/react-query`) handles all fetching and caching for the REST API. |
+| **Real-time Engine** | A custom singleton `WSClient` handles real-time ticker quotes and emits events that tell React Query to invalidate its caches immediately when the backend engine changes user state (like liquidations). |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js ≥ 20
+- pnpm ≥ 9
+- Neon Postgres database (or local Postgres)
+- Redis Server
+- MongoDB Server
+
+### Installation
+
+```bash
+git clone https://github.com/iBreakProd/opex-v2.git
+cd opex-v2
+pnpm install
 ```
-cd my-turborepo
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
+### Database Setup
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+```bash
+pnpm --filter @repo/db db:push Make sure to generate and apply Drizzle changes
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+### Development
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+```bash
+# Run all apps concurrently via Turborepo
+pnpm dev
 ```
 
-## Useful Links
+### Production Build
 
-Learn more about the power of Turborepo:
+```bash
+pnpm build
+```
 
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+---
+
+## Environment Variables
+
+A combination of global and app-specific variables. Provide `.env` files in root or respective app directories.
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Neon/Postgres connection string |
+| `REDIS_URL` | Redis connection string |
+| `MONGO_URL` | MongoDB connection string |
+| `BACKPACK_URL` | Poller endpoint (`wss://ws.backpack.exchange`) |
+| `JWT_PASSWORD` | Secret for signing JWTs |
+| `HTTP_PORT` | Backend Express Port (Default 3000) |
+| `WS_PORT` | WebSocket Server Port (Default 8080) |
+| `CORS_ORIGIN` | Allowed domains for the frontend |
+| `VITE_BACKEND_URL` | Frontend env target for Express API |
+| `VITE_WS_URL` | Frontend env target for WS Server |
+
+---
+
+## Available Scripts
+
+| Script | Command | Description |
+|---|---|---|
+| `dev` | `pnpm dev` | Run all apps in watch mode |
+| `build` | `pnpm build` | Compile all packages and apps |
+| `start` | `pnpm start` | Run compiled apps |
+| `lint` | `pnpm lint` | Run ESLint across packages |
+| `db:generate`| `pnpm --filter @repo/db generate` | Generate Drizzle migrations |
+| `db:push` | `pnpm --filter @repo/db db:push` | Push schema directly to DB |

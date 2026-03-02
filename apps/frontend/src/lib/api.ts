@@ -1,12 +1,6 @@
 import axios from "axios";
 
-function resolveProdBase(): string | undefined {
-  const envBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
-  if (envBase) return envBase;
-  return "/api/v1";
-}
-
-const baseURL = import.meta.env.DEV ? "/api/v1" : resolveProdBase();
+const baseURL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 export const api = axios.create({
   baseURL,

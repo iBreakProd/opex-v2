@@ -75,28 +75,15 @@ export default function TradeForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("\n\n[TradeForm] Submit Triggered");
+
     if (validate()) {
-        const slippageBips = Math.round(Number(slippage) * 100);
-        const payload = {
-            asset: selectedSymbol,
-            type,
-            quantity: Number(quantity),
-            leverage: Number(leverage),
-            slippage: slippageBips,
-            openPrice,
-            decimal,
-        };
-        console.log("\n\n[TradeForm] Validation Passed. Submitting Payload:", payload);
         mutate();
-    } else {
-        console.warn("\n\n[TradeForm] Validation Failed. Errors:", errors);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      {/* Type Selector */}
+
       <div className="flex bg-text-main p-1 gap-1">
         <button
           type="button"
@@ -123,7 +110,7 @@ export default function TradeForm() {
       </div>
 
       <div className="space-y-4">
-          {/* Asset Display */}
+
           <div className="flex flex-col gap-1">
             <span className="text-[10px] uppercase font-bold text-text-main/60">Asset</span>
             <div className="bg-white/50 border-2 border-text-main/20 px-3 py-3 font-mono-retro font-bold text-text-main">
@@ -131,7 +118,7 @@ export default function TradeForm() {
             </div>
           </div>
 
-          {/* Quantity Input */}
+
           <div className="flex flex-col gap-1">
             <span className="text-[10px] uppercase font-bold text-text-main/60">Quantity</span>
             <div className="relative">
@@ -148,7 +135,7 @@ export default function TradeForm() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-              {/* Leverage Input */}
+
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] uppercase font-bold text-text-main/60">Leverage (x)</span>
                 <input
@@ -162,7 +149,7 @@ export default function TradeForm() {
                  {errors.leverage && <span className="text-[10px] text-chart-red font-bold flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.leverage}</span>}
               </div>
 
-              {/* Slippage Input */}
+
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] uppercase font-bold text-text-main/60">Slippage (%)</span>
                 <input

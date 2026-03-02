@@ -136,7 +136,7 @@ export default function CandlesChart({ symbol, decimal = 2 }: Props) {
         close: k.close,
       }))
     );
-     // Force scroll to the latest bar
+
      chartRef.current?.timeScale().scrollToPosition(0, false);
   }, [klines]);
 
@@ -254,7 +254,7 @@ export default function CandlesChart({ symbol, decimal = 2 }: Props) {
 
   return (
     <div ref={containerRef} className="w-full h-full relative">
-       {/* UTC Label */}
+
        <div className="absolute bottom-[10px] left-2 text-[10px] text-text-main/40 font-bold z-10 pointer-events-none font-mono-retro">
           UTC
        </div>

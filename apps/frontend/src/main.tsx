@@ -12,13 +12,19 @@ import Trade from "@/pages/Trade";
 import NotFound from "@/pages/NotFound";
 import Unauthorized from "@/pages/Unauthorized";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import PastOrders from "@/pages/PastOrders";
+import Docs from "@/pages/Docs";
 
 const routes = [
   { path: "/", element: <Landing /> },
+  { path: "/docs", element: <Docs /> },
   { path: "/login", element: <Login /> },
   {
     element: <ProtectedRoute />,
-    children: [{ path: "/trade", element: <Trade /> }],
+    children: [
+      { path: "/trade", element: <Trade /> },
+      { path: "/past-orders", element: <PastOrders /> }
+    ],
   },
   { path: "/unauthorized", element: <Unauthorized /> },
   { path: "*", element: <NotFound /> },

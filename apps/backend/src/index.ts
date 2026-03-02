@@ -12,16 +12,6 @@ import {
 } from "@repo/redis/queue";
 import { responseLoopObj } from "./utils/responseLoop";
 
-process.on("unhandledRejection", (reason) => {
-  console.error("\n\nUnhandled rejection", reason);
-  process.exitCode = 1;
-});
-process.on("uncaughtException", (err) => {
-  console.error("\n\nUncaught exception", err);
-  process.exitCode = 1;
-  process.exit(1);
-});
-
 const SHUTDOWN_TIMEOUT_MS = 5_000;
 
 const config = loadBackendConfig();
@@ -30,11 +20,11 @@ const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
+app.set("etag", false);
+
 app.use((req, res, next) => {
-    console.log(`\n\n[Backend] Incoming ${req.method} ${req.url}`);
-    console.log(`[Backend] Origin: ${req.headers.origin}`);
-    console.log(`[Backend] Configured CORS_ORIGIN: ${config.CORS_ORIGIN}`);
-    next();
+  res.setHeader("Cache-Control", "no-store");
+  next();
 });
 
 app.use(
@@ -43,23 +33,6 @@ app.use(
     credentials: true,
   })
 );
-
-app.use((req, res, next) => {
-    const start = Date.now();
-    console.log(`\n\n[Backend] Incoming ${req.method} ${req.url}`);
-    if (req.body && Object.keys(req.body).length > 0) {
-        console.log(`\n\n[Backend] Body: ${JSON.stringify(req.body).slice(0, 500)}`);
-    }
-    if (req.query && Object.keys(req.query).length > 0) {
-        console.log(`\n\n[Backend] Query: ${JSON.stringify(req.query)}`);
-    }
-    
-    res.on("finish", () => {
-        const duration = Date.now() - start;
-        console.log(`\n\n[Backend] Completed ${req.method} ${req.url} ${res.statusCode} in ${duration}ms`);
-    });
-    next();
-});
 
 app.use("/api/v1", router);
 
@@ -76,7 +49,7 @@ let server: ReturnType<express.Express["listen"]> | undefined;
   }
   responseLoopObj.start();
   server = app.listen(config.HTTP_PORT, () => {
-    console.log(`\n\nServer started at ${config.HTTP_PORT}`);
+    console.log(`Server started at ${config.HTTP_PORT}`);
   });
 })();
 

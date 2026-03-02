@@ -28,19 +28,23 @@ export class ResponseLoop {
   }
 
   async runLoop() {
+    let lastId = "$";
     while (1) {
       try {
         const res = await engineResponsePuller.xRead(
           {
             key: "stream:engine:response",
-            id: "$",
+            id: lastId,
           },
           { BLOCK: 5000, COUNT: 1 }
         );
 
         if (!res?.[0]?.messages?.[0]?.message) continue;
 
-        const msg = res[0].messages[0].message;
+        const entry = res[0].messages[0];
+        lastId = entry.id;
+        
+        const msg = entry.message;
         const reqType = msg.type;
         const gotId = msg.reqId;
 

@@ -13,7 +13,7 @@ function appToDisplaySymbol(backendSymbol: string): string {
 }
 
 export default function OpenOrders() {
-  const { isLoading, isFetching, isError } = useFetchOpenOrders();
+  const { isLoading, isError } = useFetchOpenOrders();
   const { mutate: closeOrder } = useCloseOrder();
   const orders = Object.values(useOpenOrdersStore((s) => s.ordersById));
   const quotes = useQuotesStore((s) => s.quotes);
@@ -51,7 +51,7 @@ export default function OpenOrders() {
           </tr>
         </thead>
         <tbody className="font-mono-retro text-sm">
-          {isLoading || isFetching ? (
+          {isLoading ? (
             <tr>
               <td
                 className="p-8 text-center text-xs text-text-main/40 font-bold uppercase"
@@ -72,7 +72,6 @@ export default function OpenOrders() {
           ) : null}
 
           {!isLoading &&
-            !isFetching &&
             !isError &&
             rows.map((r) => (
             <tr key={r.id} className="border-b border-text-main/5 hover:bg-white/50 transition-colors">
@@ -106,7 +105,7 @@ export default function OpenOrders() {
               </td>
             </tr>
           ))}
-          {!isLoading && !isFetching && !isError && rows.length === 0 ? (
+          {!isLoading && !isError && rows.length === 0 ? (
             <tr>
               <td
                 className="p-12 text-center text-xs text-text-main/40 font-bold uppercase"
