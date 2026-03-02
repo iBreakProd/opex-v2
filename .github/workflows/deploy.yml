@@ -124,6 +124,8 @@ jobs:
             cd ~/app
             echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
 
+            rm -f .env.opex.production
+
             cat <<EOF > .env.opex.production
             DOCKERHUB_IMAGE_PREFIX=${{ secrets.DOCKERHUB_USERNAME }}/opex
             IMAGE_TAG=${{ github.sha }}
@@ -141,4 +143,6 @@ jobs:
             EOF
 
             docker compose -f docker-compose.production.yml pull
-            docker compose -f docker-compose.production.yml --env-file .env.opex.production up -d
+            docker compose -f docker-compose.production.yml --env-file .env.opex.production up -d --remove-orphans
+
+            docker system prune -af
