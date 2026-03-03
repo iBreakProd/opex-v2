@@ -1,6 +1,6 @@
 # [Opex-v2](https://opex.hrsht.me/)
 
-**Opex-v2** is a distributed, service-oriented cryptocurrency perpetuals trading platform. It simulates real-time trading of crypto perpetual contracts (BTC, ETH, SOL) with features like leverage, cross-margin, liquidation, and real-time portfolio updates. Built as a Turborepo monorepo, it features a blazingly fast in-memory matching engine backed by Redis Streams, MongoDB for state snapshots, and PostgreSQL for persistent trade history.
+**Opex-v2** is a distributed, service-oriented cryptocurrency perpetuals trading platform. It simulates real-time trading of crypto perpetual contracts (BTC, ETH, SOL) with features like leverage, cross-margin, liquidation, and real-time portfolio updates. Built as a Turborepo monorepo, it features an efficient in-memory matching engine backed by Redis Streams, MongoDB for state snapshots, and PostgreSQL for persistent trade history.
 
 ## 🎥 Demo Video
 
@@ -132,7 +132,7 @@ Poller receives tick from Backpack Exchange
 | **Neon (Serverless Postgres)** | Primary database (Users, Closed Trades) |
 | **Drizzle ORM** | Type-safe SQL query builder |
 | **Redis** | Stream-based event bus, PubSub for real-time WebSockets |
-| **MongoDB** | Fast serialization and snapshotting of the in-memory engine state |
+| **MongoDB** | Serialization and snapshotting of the in-memory engine state |
 | **Docker Compose** | Orchestration for production and local environments |
 
 ---
@@ -162,19 +162,19 @@ opex-v2/
 
 ## Engine Architecture (Deep Dive)
 
-The `apps/engine` service is the core of Opex-v2. It sits asynchronously behind a Redis Stream message broker (`stream:app:info`).
+The `apps/engine` service is the core of Opex-v2. It operates asynchronously utilizing a Redis Stream message broker (`stream:app:info`).
 
 ### Sequential State Machine
-Because the engine holds the active state in memory for performance, it operates basically as a single-threaded consumer of the unified Redis Stream. This ensures strict ordering of events:
+The engine holds the active state in memory for performance, operating as a single-threaded consumer of the unified Redis Stream. This ensures strict ordering of events:
 1. Trade Opens 
 2. Trade Closes
 3. Price Updates (Liquidation checks)
 
 ### Recovery & Resilience
-In the event of an engine crash, rebuilding state from a massive Postgres ledger is slow. Instead:
-- Every 5 seconds, the engine serializes its entire memory map (Prices, Open Orders, User Balances, Last Stream ID) and upserts it as a single JSON blob into **MongoDB**.
+To optimize recovery time in the event of an engine restart:
+- Every 5 seconds, the engine serializes its memory map (Prices, Open Orders, User Balances, Last Stream ID) and upserts it as a single JSON blob into **MongoDB**.
 - On startup, the engine queries MongoDB for the last snapshot.
-- It then queries the Redis Stream to replay only the events (from the last consumed ID) that happened *after* the snapshot was taken, achieving virtually instant recovery.
+- It then queries the Redis Stream to replay only the events (from the last consumed ID) that happened *after* the snapshot was taken, achieving rapid recovery.
 
 ---
 
@@ -182,22 +182,22 @@ In the event of an engine crash, rebuilding state from a massive Postgres ledger
 
 ### The Poller (`apps/poller`)
 A lightweight bridging service. It establishes a WebSocket connection to Backpack Exchange, listening for ticker data (e.g., `BTC_USDC_PERP`). 
-- **Fast Path:** It publishes this data immediately to a Redis PubSub channel (`ws:price:update`).
-- **Engine Path:** It simultaneously queues the price data into the Engine's Redis Stream so the engine can orderly process margin impact.
+- **Fast Path:** It publishes this data to a Redis PubSub channel (`ws:price:update`).
+- **Engine Path:** It simultaneously queues the price data into the Engine's Redis Stream so the engine can process margin impact.
 
 ### The WebSocket Server (`apps/web-socket`)
-The WS server scales horizontally. It does not contain game logic. It only:
+The WS server scales horizontally. It acts as a messaging layer and does not contain trading logic:
 1. Subscribes to the global `ws:price:update` channel and broadcasts fast ticker prices to all connected browsers.
-2. Subscribes to patterned user channels (`ws:user:state:*`). If the engine liquidates a user, it pings this user's channel. The WS server forwards this to the user's specific browser connection, triggering the frontend to refetch its `/api/v1/trade/open` endpoints.
+2. Subscribes to patterned user channels (`ws:user:state:*`). If the engine liquidates a user, it pings this user's channel. The WS server forwards this to the user's specific browser connection, triggering the frontend to refetch relevant data.
 
 ---
 
 ## Database & Persistence Strategy
 
 ### PostgreSQL (via Drizzle ORM)
-Used strictly for persistent, immutable records requiring heavy relational querying later:
+Used for persistent, immutable records requiring relational querying:
 - **`users` table**: Authentication data, core permanent balances.
-- **`existing_trades` table**: Whenever a trade is successfully closed or forcibly liquidated, it is inserted here. This acts as the user's transaction history.
+- **`existing_trades` table**: Successfully closed or liquidated trades are inserted here to act as the user's transaction history.
 
 ### Redis
 Used for ephemeral state and messaging:
@@ -246,7 +246,7 @@ Used uniquely for state-snapshotting the Engine to provide rapid boot-ups withou
 | Concept | Purpose |
 |---|---|
 | **Routing** | React Router (`react-router-dom`) with `ProtectedRoute` wrappers for authenticated views (`/trade`, `/past-orders`). |
-| **State Management** | React Query (`@tanstack/react-query`) handles all fetching and caching for the REST API. |
+| **State Management** | React Query (`@tanstack/react-query`) handles fetching and caching for the REST API. |
 | **Real-time Engine** | A custom singleton `WSClient` handles real-time ticker quotes and emits events that tell React Query to invalidate its caches immediately when the backend engine changes user state (like liquidations). |
 
 ---
@@ -272,7 +272,7 @@ pnpm install
 ### Database Setup
 
 ```bash
-pnpm --filter @repo/db db:push Make sure to generate and apply Drizzle changes
+pnpm --filter @repo/db db:push # Make sure to generate and apply Drizzle changes
 ```
 
 ### Development
