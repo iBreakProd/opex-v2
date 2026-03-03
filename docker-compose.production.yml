@@ -26,6 +26,9 @@ services:
     env_file: .env.opex.production
     environment:
       - NODE_ENV=production
+    depends_on:
+      - mongo
+      - redis
 
   web-socket:
     image: ${DOCKERHUB_IMAGE_PREFIX}-web-socket:${IMAGE_TAG}

@@ -112,7 +112,7 @@ export class Engine {
           this.groupName,
           this.consumerName,
           { key: this.streamKey, id: ">" },
-          { BLOCK: 5000, COUNT: 1 }
+          { BLOCK: 500, COUNT: 1 }
         );
 
         if (res && res[0]) {
