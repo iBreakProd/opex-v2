@@ -5,9 +5,9 @@
 ## 🎥 Demo Video
 
 <a href="https://youtu.be/bcTubX0a9KQ" target="_blank">
-  <img src="https://img.youtube.com/vi/bcTubX0a9KQ/maxresdefault.jpg" width="560" alt="Opex - The Trading App">
+  <img width="1440" height="900" alt="Opex - The Trading App" src="https://github.com/user-attachments/assets/bd8e2d97-af8e-493b-ab7a-a8c7c2d8a368" />
 </a>  
-<p><b>Opex - The Trading App</b></p>
+<p><b>Opex - The Trading App</b> <a href="https://youtu.be/bcTubX0a9KQ" target="_blank">Video ^^^</a></p>
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
