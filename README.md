@@ -2,6 +2,10 @@
 
 **Opex-v2** is a distributed, service-oriented cryptocurrency perpetuals trading platform. It simulates real-time trading of crypto perpetual contracts (BTC, ETH, SOL) with features like leverage, cross-margin, liquidation, and real-time portfolio updates. Built as a Turborepo monorepo, it features an efficient in-memory matching engine backed by Redis Streams, MongoDB for state snapshots, and PostgreSQL for persistent trade history.
 
+Built by [Harshit](https://www.hrsht.me).
+
+Project live at [Opex](https://opex.hrsht.me)
+
 ## 🎥 Demo Video
 
 <a href="https://youtu.be/bcTubX0a9KQ" target="_blank">
