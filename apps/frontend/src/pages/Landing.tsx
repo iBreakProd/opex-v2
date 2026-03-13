@@ -39,7 +39,7 @@ export default function Landing() {
               </button>
             </div>
             <div className="flex items-center gap-4">
-              <button onClick={() => navigate("/login")} className="hidden md:block font-mono-retro font-bold text-sm underline decoration-2 underline-offset-4 hover:text-primary bg-transparent border-none p-0">LOG IN</button>
+              <button onClick={() => navigate("/login")} className="hidden md:block font-mono-retro font-bold text-sm underline decoration-2 underline-offset-4 hover:text-primary bg-transparent border-none p-0">TRY DEMO</button>
               <button onClick={() => navigate("/login")} className="bg-primary hover:bg-primary-dark text-white px-6 py-3 font-bold font-mono-retro text-sm shadow-brutal hover:shadow-brutal-hover hover:translate-x-[2px] hover:translate-y-[2px] transition-all border-2 border-text-main">
                 START_TRADING
               </button>
