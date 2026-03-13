@@ -262,22 +262,22 @@ export default function CandlesChart({ symbol, decimal = 2 }: Props) {
   );
 }
 
-export function TimeframeSwitcher() {
+export function TimeframeSwitcher({ className }: { className?: string }) {
   const timeframe = useCandlesStore((s) => s.timeframe);
   const setTimeframe = useCandlesStore((s) => s.setTimeframe);
   const tfs: Timeframe[] = ["1m", "5m", "15m", "1h", "1d"];
-  
+
   return (
-    <div className="flex items-center gap-0.5 bg-white/80 backdrop-blur-sm p-0.5 rounded-md border border-text-main/10 shadow-sm scale-90 origin-center">
+    <div className={`flex items-center gap-0 bg-white/80 backdrop-blur-sm border border-text-main/10 ${className ?? ""}`}>
       {tfs.map((tf) => (
         <button
           key={tf}
           onClick={() => setTimeframe(tf)}
           className={`
-            !px-3.5 !py-0.5 !rounded-sm text-[9px] font-bold font-mono-retro transition-all border uppercase
+            px-2 py-0.5 lg:px-3.5 lg:py-0.5 text-[8px] lg:text-[9px] font-bold font-mono-retro transition-all border-r border-text-main/10 last:border-r-0 uppercase
             ${timeframe === tf
-              ? "bg-primary text-white border-primary shadow-sm"
-              : "bg-transparent text-text-main/60 border-transparent hover:bg-black/5 hover:text-text-main"
+              ? "bg-primary text-white"
+              : "bg-transparent text-text-main/60 hover:bg-black/5 hover:text-text-main"
             }
           `}
         >

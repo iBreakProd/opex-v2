@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useSessionStore } from "@/lib/session";
 import { useQuotesFeed, useQuotesStore, getMidPrice } from "@/lib/quotesStore";
@@ -12,7 +12,7 @@ import { useOpenOrdersStore } from "@/lib/openOrdersStore";
 import { backendToAppSymbol } from "@/lib/symbols";
 import { toDecimalNumber } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
-import { LogOut } from "lucide-react";
+import { LogOut, ChevronDown } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthCheck } from "@/lib/useAuthCheck";
 import { useGuestSession } from "@/lib/useGuestSession";
@@ -29,6 +29,8 @@ export default function Trade() {
   const { isLoading: isAuthLoading, isSuccess: isAuthSuccess } = useAuthCheck();
   const { mutate: initGuestSession, isPending: isGuestLoading } = useGuestSession();
   const guestInitiated = useRef(false);
+  const [mobileTradeOpen, setMobileTradeOpen] = useState(false);
+  const [mobilePreselect, setMobilePreselect] = useState<"long" | "short">("long");
 
   useEffect(() => {
     if (!isAuthLoading && !isAuthSuccess && !isAuthenticated && !guestInitiated.current) {
@@ -100,28 +102,27 @@ export default function Trade() {
   return (
     <div className="min-h-screen lg:h-screen w-screen overflow-x-hidden lg:overflow-hidden bg-background-light text-text-main font-mono-retro flex flex-col">
 
-      <nav className="h-16 border-b-3 border-text-main flex items-center justify-between px-6 bg-background-light shrink-0 z-10 relative">
+      <nav className="h-12 lg:h-16 border-b-3 border-text-main flex items-center justify-between px-3 lg:px-6 bg-background-light shrink-0 z-10 relative">
         <div className="flex items-center gap-4">
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 bg-text-main flex items-center justify-center p-1 group-hover:translate-x-[2px] group-hover:translate-y-[2px] transition-all">
+            <div className="w-7 h-7 lg:w-8 lg:h-8 bg-text-main flex items-center justify-center p-1 group-hover:translate-x-[2px] group-hover:translate-y-[2px] transition-all">
               <img src="/opex.png" alt="OPEX Logo" className="w-full h-full object-contain" />
             </div>
-            <span className="font-serif-heading font-bold text-2xl tracking-tight italic">OPEX</span>
+            <span className="font-serif-heading font-bold text-xl lg:text-2xl tracking-tight italic">OPEX</span>
           </Link>
-          <div className="h-6 w-0.5 bg-text-main/20 mx-2"></div>
-
+          <div className="hidden lg:block h-6 w-0.5 bg-text-main/20 mx-2"></div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex flex-col items-end mr-4">
+        <div className="flex items-center gap-3 lg:gap-6">
+          <div className="flex flex-col items-end mr-1 lg:mr-4">
             <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Equity</span>
-            <span className="text-lg font-bold font-mono-retro">
+            <span className="text-base lg:text-lg font-bold font-mono-retro">
               ${isBalanceLoading || !usdBalance
-                ? "SYNCING..."
+                ? "..."
                 : toDecimalNumber(equity, usdBalance.decimal).toLocaleString()}
             </span>
           </div>
-           <div className="flex flex-col items-end mr-4">
+          <div className="hidden lg:flex flex-col items-end mr-4">
             <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Balance</span>
             <span className="text-sm font-bold font-mono-retro">
               ${isBalanceLoading || !usdBalance
@@ -130,11 +131,11 @@ export default function Trade() {
             </span>
           </div>
           {isGuest ? (
-            <div className="flex items-center gap-4">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-chart-red">GUEST MODE</span>
+            <div className="flex items-center gap-2 lg:gap-4">
+              <span className="hidden lg:inline text-[10px] font-bold uppercase tracking-wider text-chart-red">GUEST MODE</span>
               <button
                 onClick={() => navigate("/login")}
-                className="px-4 py-2 bg-primary text-white font-bold text-xs font-mono-retro border-2 border-text-main shadow-brutal hover:shadow-brutal-hover hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+                className="px-2 lg:px-4 py-1 lg:py-2 bg-primary text-white font-bold text-[10px] lg:text-xs font-mono-retro border-2 border-text-main shadow-brutal hover:shadow-brutal-hover hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
               >
                 SIGN_UP
               </button>
@@ -152,17 +153,31 @@ export default function Trade() {
         </div>
       </nav>
 
+      {/* Mobile symbol dropdown */}
+      <div className="flex lg:hidden items-center px-3 py-1.5 border-b-3 border-text-main bg-white/30 shrink-0">
+        <div className="relative">
+          <select
+            value={selectedSymbol}
+            onChange={(e) => useQuotesStore.getState().setSelectedSymbol(e.target.value)}
+            className="bg-primary text-white border-2 border-text-main px-3 py-1.5 pr-8 text-xs font-bold font-mono-retro uppercase appearance-none cursor-pointer outline-none shadow-brutal"
+          >
+            {["BTCUSDC", "ETHUSDC", "SOLUSDC"].map((sym) => (
+              <option key={sym} value={sym}>{sym.replace("USDC", "/USD")}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none text-white/70" />
+        </div>
+      </div>
 
-      <main className="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden min-h-0 bg-background-light">
+
+      <main className="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-0 overflow-y-auto lg:overflow-hidden min-h-0 pb-16 lg:pb-0 bg-background-light">
         
 
-        <aside className="lg:col-span-2 border-b-3 lg:border-b-0 lg:border-r-3 border-text-main bg-white/30 flex flex-col shrink-0 lg:min-h-0 lg:h-full order-1">
-          <div className="p-3 border-b-2 border-text-main/10 bg-background-light flex justify-between items-center cursor-pointer lg:cursor-default group" onClick={() => {
-          }}>
+        <aside className="lg:col-span-2 border-b-3 lg:border-b-0 lg:border-r-3 border-text-main bg-white/30 hidden lg:flex lg:flex-col shrink-0 lg:min-h-0 lg:h-full order-1">
+          <div className="p-3 border-b-2 border-text-main/10 bg-background-light flex justify-between items-center">
             <h3 className="font-bold text-xs uppercase tracking-wider">Market Data</h3>
-            <span className="lg:hidden text-[10px] text-text-main/60">// TAP_TO_EXPAND</span>
           </div>
-          <div className="max-h-[200px] lg:max-h-none overflow-y-auto lg:flex-1 p-0 opex-scrollbar">
+          <div className="overflow-y-auto flex-1 p-0 opex-scrollbar">
              <QuotesTable />
           </div>
         </aside>
@@ -170,43 +185,42 @@ export default function Trade() {
 
         <section className="lg:col-span-7 flex flex-col lg:min-h-0 lg:h-full relative order-2 lg:overflow-hidden border-b-3 lg:border-b-0 border-text-main">
 
-          <div className="h-[350px] lg:h-[50%] border-b-3 border-text-main relative bg-white/50 shrink-0 flex flex-col">
+          <div className="h-[70vh] lg:h-[50%] border-b-3 border-text-main relative bg-white/50 shrink-0 flex flex-col">
 
-             <div className="h-14 border-b border-text-main/10 flex items-center justify-between px-4 bg-white/50 backdrop-blur-sm shrink-0 z-20">
+             <div className="h-8 lg:h-14 border-b border-text-main/10 flex items-center justify-between px-3 lg:px-4 bg-white/50 backdrop-blur-sm shrink-0 z-20">
 
-                <div className="flex flex-col">
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-xl lg:text-2xl font-serif-heading font-black leading-none">{selectedSymbol}</span>
-                        {q && (
-                            <span className="text-xs px-1.5 py-0.5 bg-text-main text-background-light font-bold leading-none self-center">
-                                LIVE
-                            </span>
-                        )}
-                    </div>
+                <div className="flex items-baseline gap-2">
+                    <span className="text-lg lg:text-2xl font-serif-heading font-black leading-none">{selectedSymbol}</span>
+                    {q && (
+                        <span className="text-[10px] lg:text-xs px-1 lg:px-1.5 py-0.5 bg-text-main text-background-light font-bold leading-none self-center">
+                            LIVE
+                        </span>
+                    )}
                 </div>
 
-
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                <div className="hidden lg:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
                    <TimeframeSwitcher />
                 </div>
 
-
                  <div className="flex flex-col items-end">
                     {q && (
-                        <span className="text-lg font-mono-retro font-bold">
+                        <span className="text-sm lg:text-lg font-mono-retro font-bold">
                             {getMidPrice(q).toFixed(q.decimal)}
                         </span>
                     )}
                  </div>
              </div>
 
-
              <div className="flex-1 relative w-full overflow-hidden">
                 <CandlesChart symbol={selectedSymbol} decimal={q?.decimal} />
              </div>
+
+             <div className="lg:hidden flex py-1 border-t border-text-main/10 bg-white/50 shrink-0">
+                <TimeframeSwitcher className="w-full [&_button]:flex-1" />
+             </div>
           </div>
           
-          <div className="h-[300px] lg:flex-1 flex flex-col bg-background-light min-h-0 text-sm">
+          <div className="h-auto lg:flex-1 flex flex-col bg-background-light lg:min-h-0 text-sm">
              <div className="p-2 border-b-2 border-text-main/10 flex justify-between items-center bg-background-light">
                 <h3 className="font-bold text-xs uppercase tracking-wider px-2">Open Positions</h3>
                 {!isGuest && (
@@ -225,7 +239,7 @@ export default function Trade() {
         </section>
 
 
-        <aside className="lg:col-span-3 border-l-0 lg:border-l-3 border-text-main bg-background-light flex flex-col shrink-0 lg:min-h-0 lg:h-full order-3">
+        <aside className="lg:col-span-3 border-l-0 lg:border-l-3 border-text-main bg-background-light hidden lg:flex lg:flex-col shrink-0 lg:min-h-0 lg:h-full order-3">
            <div className="p-4 border-b-3 border-text-main bg-primary text-white">
               <h2 className="font-serif-heading text-2xl italic font-bold">EXECUTE</h2>
            </div>
@@ -235,6 +249,49 @@ export default function Trade() {
         </aside>
 
       </main>
+
+      {/* Mobile sticky bottom bar */}
+      {!mobileTradeOpen && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 lg:hidden border-t-3 border-text-main bg-background-light px-3 py-2 flex gap-2">
+          <button
+            onClick={() => { setMobilePreselect("long"); setMobileTradeOpen(true); }}
+            className="flex-1 py-1.5 bg-chart-green text-text-main font-bold text-[11px] font-mono-retro uppercase border-2 border-text-main shadow-brutal hover:shadow-brutal-hover hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+          >
+            LONG
+          </button>
+          <button
+            onClick={() => { setMobilePreselect("short"); setMobileTradeOpen(true); }}
+            className="flex-1 py-1.5 bg-chart-red text-white font-bold text-[11px] font-mono-retro uppercase border-2 border-text-main shadow-brutal hover:shadow-brutal-hover hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+          >
+            SHORT
+          </button>
+        </div>
+      )}
+
+      {/* Mobile trade bottom sheet */}
+      {mobileTradeOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileTradeOpen(false)} />
+          <div className="absolute bottom-0 left-0 right-0 bg-background-light border-t-3 border-text-main animate-slide-up max-h-[85vh] overflow-y-auto opex-scrollbar">
+            <div className="sticky top-0 px-3 py-2.5 border-b-3 border-text-main bg-primary text-white flex justify-between items-center z-10">
+              <h2 className="font-serif-heading text-lg italic font-bold">EXECUTE</h2>
+              <button
+                onClick={() => setMobileTradeOpen(false)}
+                className="w-8 h-8 flex items-center justify-center text-white/80 hover:text-white font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-3">
+              <TradeForm
+                key={mobilePreselect}
+                defaultSide={mobilePreselect}
+                onClose={() => setMobileTradeOpen(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

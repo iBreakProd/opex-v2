@@ -8,8 +8,10 @@ export const guestAwareAuthMiddleware = (
   next: NextFunction
 ) => {
   const jwtToken = req.cookies.jwt;
+  const guestToken = req.cookies.guest_session;
+  const token = jwtToken || guestToken;
 
-  if (!jwtToken) {
+  if (!token) {
     res.status(401).json({
       message: "User not verified",
     });
@@ -25,7 +27,7 @@ export const guestAwareAuthMiddleware = (
   }
 
   try {
-    const decodedToken = jwt.verify(jwtToken, secret) as string;
+    const decodedToken = jwt.verify(token, secret) as string;
 
     if (!decodedToken) {
       res.status(401).json({
@@ -37,7 +39,7 @@ export const guestAwareAuthMiddleware = (
     (req as unknown as { userId: string; isGuest: boolean }).userId =
       decodedToken;
     (req as unknown as { userId: string; isGuest: boolean }).isGuest =
-      decodedToken.startsWith("guest:");
+      !jwtToken || decodedToken.startsWith("guest:");
 
     next();
   } catch {

@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuthCheck } from "@/lib/useAuthCheck";
+import { useSessionStore } from "@/lib/session";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -24,11 +25,12 @@ export default function Login() {
   const { isSuccess: isAuthSuccess } = useAuthCheck();
   const navigate = useNavigate();
 
+  const isGuest = useSessionStore((s) => s.isGuest);
   useEffect(() => {
-    if (isAuthSuccess) {
+    if (isAuthSuccess && !isGuest) {
       navigate("/trade", { replace: true });
     }
-  }, [isAuthSuccess, navigate]);
+  }, [isAuthSuccess, isGuest, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-6 bg-background-light font-mono-retro">

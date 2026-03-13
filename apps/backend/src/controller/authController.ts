@@ -126,6 +126,11 @@ export const signinController = async (req: Request, res: Response) => {
       secure: isProduction,
       sameSite: "lax",
     });
+    res.clearCookie("guest_session", {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: "lax",
+    });
     const corsOrigin = process.env.CORS_ORIGIN;
     if (!corsOrigin) {
       res.status(500).json({ message: "Server configuration error" });
@@ -196,7 +201,7 @@ export const guestSessionController = async (req: Request, res: Response) => {
   }
 
   const isProduction = process.env.NODE_ENV === "production";
-  res.cookie("jwt", jwtToken, {
+  res.cookie("guest_session", jwtToken, {
     httpOnly: true,
     secure: isProduction,
     sameSite: "lax",

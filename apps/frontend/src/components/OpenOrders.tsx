@@ -37,7 +37,50 @@ export default function OpenOrders() {
 
   return (
     <div className="w-full">
-      <table className="w-full border-collapse text-left">
+      {/* Mobile card view */}
+      <div className="lg:hidden flex flex-col gap-1.5 p-1.5">
+        {isLoading && (
+          <div className="text-center text-xs p-4 text-text-main/40 font-bold uppercase">// SYNCING_ORDERS...</div>
+        )}
+        {isError && (
+          <div className="text-center text-xs p-4 text-chart-red font-bold uppercase">// SYNC_ERROR_RETRYING...</div>
+        )}
+        {!isLoading && !isError && rows.length === 0 && (
+          <div className="text-center text-xs p-8 text-text-main/40 font-bold uppercase">// NO_OPEN_POSITIONS</div>
+        )}
+        {!isLoading && !isError && rows.map((r) => (
+          <div key={r.id} className="border-2 border-text-main bg-white/50 p-2">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] px-1.5 py-0.5 font-bold uppercase font-mono-retro ${
+                  r.type === "long" ? "bg-chart-green text-text-main" : "bg-chart-red text-white"
+                }`}>{r.type}</span>
+                <span className="font-bold text-sm font-mono-retro">{r.appSym}</span>
+              </div>
+              <button
+                onClick={() => closeOrder(r.id)}
+                className="p-1.5 hover:bg-chart-red hover:text-white text-chart-red transition-colors border border-transparent hover:border-chart-red"
+                title="Close Position"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex justify-between mt-2 text-xs font-mono-retro text-text-main/70">
+              <span>Entry: {toDecimalNumber(r.openPrice, r.decimal)}</span>
+              <span>Mark: {toDecimalNumber(r.current, r.decimal)}</span>
+            </div>
+            <div className="flex justify-between mt-1 text-xs font-mono-retro">
+              <span className="text-text-main/70">{r.quantity} × {r.leverage}x</span>
+              <span className={`font-bold ${r.pnlDec >= 0 ? "text-chart-green" : "text-chart-red"}`}>
+                {r.pnlDec > 0 ? "+" : ""}{r.pnlDec.toFixed(r.decimal)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table view */}
+      <table className="hidden lg:table w-full border-collapse text-left">
         <thead className="bg-background-light sticky top-0 font-mono-retro border-b border-text-main/10">
           <tr>
             <th className="p-3 text-[10px] font-bold uppercase text-text-main/60 tracking-wider">Asset</th>
