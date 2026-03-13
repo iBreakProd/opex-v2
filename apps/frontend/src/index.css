@@ -144,3 +144,23 @@ button {
   stroke-dashoffset: 1000;
   animation: dash 5s linear forwards;
 }
+
+/* Brutalist scrollbar */
+.opex-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.opex-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.opex-scrollbar::-webkit-scrollbar-thumb {
+  background: #11110D40;
+  border-radius: 0;
+}
+.opex-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #11110D80;
+}
+.opex-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #11110D40 transparent;
+}

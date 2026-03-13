@@ -150,10 +150,60 @@ export const signinController = async (req: Request, res: Response) => {
 export const whoamiController = async (req: Request, res: Response) => {
   const userId = (req as unknown as { userId: string }).userId;
 
+  if (userId.startsWith("guest:")) {
+    const reqId = Date.now().toString() + crypto.randomUUID();
+    try {
+      await httpPusher.xAdd("stream:app:info", "*", {
+        type: "user-signup",
+        user: JSON.stringify({ id: userId, balance: 50000000, decimal: 4 }),
+        reqId,
+      });
+      await responseLoopObj.waitForResponse(reqId);
+    } catch {
+      // engine handleUserAuth is idempotent — if user exists it's a no-op
+    }
+  }
+
   res.json({
     message: "Authenticated",
     userId,
+    isGuest: userId.startsWith("guest:"),
   });
+};
+
+export const guestSessionController = async (req: Request, res: Response) => {
+  const guestId = `guest:${crypto.randomUUID()}`;
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    res.status(500).json({ message: "Server configuration error" });
+    return;
+  }
+
+  const jwtToken = jwt.sign(guestId, secret);
+
+  const reqId = Date.now().toString() + crypto.randomUUID();
+  try {
+    await httpPusher.xAdd("stream:app:info", "*", {
+      type: "user-signup",
+      user: JSON.stringify({ id: guestId, balance: 50000000, decimal: 4 }),
+      reqId,
+    });
+    await responseLoopObj.waitForResponse(reqId);
+  } catch (err) {
+    res.status(500).json({ message: "Could not create guest session" });
+    return;
+  }
+
+  const isProduction = process.env.NODE_ENV === "production";
+  res.cookie("jwt", jwtToken, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "lax",
+    maxAge: 24 * 60 * 60 * 1000,
+  });
+
+  res.json({ message: "Guest session created", userId: guestId, isGuest: true });
 };
 
 export const logoutController = async (req: Request, res: Response) => {

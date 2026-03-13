@@ -6,11 +6,13 @@ import { useSessionStore } from "./session";
 interface WhoAmIResponse {
   message: string;
   userId: string;
+  isGuest?: boolean;
 }
 
 export function useAuthCheck() {
   const setAuthenticated = useSessionStore((s) => s.setAuthenticated);
   const setUserId = useSessionStore((s) => s.setUserId);
+  const setIsGuest = useSessionStore((s) => s.setIsGuest);
 
   const query = useQuery({
     queryKey: ["auth_whoami"],
@@ -19,7 +21,7 @@ export function useAuthCheck() {
       return res.data as WhoAmIResponse;
     },
     retry: false,
-    staleTime: 5 * 60 * 1000, 
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
 
@@ -27,12 +29,16 @@ export function useAuthCheck() {
     if (query.isSuccess && query.data?.userId) {
       setAuthenticated(true);
       setUserId(query.data.userId);
+      setIsGuest(query.data.isGuest ?? false);
     }
     if (query.isError) {
-      setAuthenticated(false);
-      setUserId(null);
+      const currentIsGuest = useSessionStore.getState().isGuest;
+      if (!currentIsGuest) {
+        setAuthenticated(false);
+        setUserId(null);
+      }
     }
-  }, [query.isSuccess, query.isError, query.data?.userId, setAuthenticated, setUserId]);
+  }, [query.isSuccess, query.isError, query.data?.userId, setAuthenticated, setUserId, setIsGuest]);
 
   return query;
 }

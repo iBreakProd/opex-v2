@@ -42,6 +42,7 @@ export class Engine {
   private userBalances: Record<string, UserBalance> = {};
   private lastConsumedStreamItemId: string = "";
   private lastSnapShotAt: number = Date.now();
+  private lastGuestCleanupAt: number = Date.now();
 
   private readonly dbName = "opex-snapshot";
   private readonly collectionName = "engine_backup";
@@ -103,11 +104,6 @@ export class Engine {
           );
         }
 
-        await this.enginePuller.xGroupSetId(
-          this.streamKey,
-          this.groupName,
-          "$"
-        );
         const res = await this.enginePuller.xReadGroup(
           this.groupName,
           this.consumerName,
@@ -167,6 +163,11 @@ export class Engine {
             );
             process.exit(1);
           }
+        }
+
+        if (Date.now() - this.lastGuestCleanupAt > 5 * 60 * 1000) {
+          this.cleanupStaleGuests();
+          this.lastGuestCleanupAt = Date.now();
         }
       } catch (loopErr) {
         console.error("\n\n[Engine] Loop error:", loopErr);
@@ -307,10 +308,20 @@ export class Engine {
     const collection = db.collection(this.collectionName);
 
     this.lastSnapShotAt = Date.now();
+
+    const filteredOrders: Record<string, OpenOrders[]> = {};
+    const filteredBalances: Record<string, UserBalance> = {};
+    for (const [uid, orders] of Object.entries(this.openOrders)) {
+      if (!uid.startsWith("guest:")) filteredOrders[uid] = orders;
+    }
+    for (const [uid, bal] of Object.entries(this.userBalances)) {
+      if (!uid.startsWith("guest:")) filteredBalances[uid] = bal;
+    }
+
     const data = {
       currentPrice: this.currentPrice,
-      openOrders: this.openOrders,
-      userBalances: this.userBalances,
+      openOrders: filteredOrders,
+      userBalances: filteredBalances,
       lastConsumedStreamItemId: this.lastConsumedStreamItemId,
       lastSnapShotAt: this.lastSnapShotAt,
     };
@@ -421,10 +432,12 @@ export class Engine {
             userId,
           };
 
-          try {
-            await db.insert(schema.existingTrades).values(closedOrder);
-          } catch (dbErr) {
-            console.error("\n\n[Engine] Failed to persist liquidation", dbErr);
+          if (!userId.startsWith("guest:")) {
+            try {
+              await db.insert(schema.existingTrades).values(closedOrder);
+            } catch (dbErr) {
+              console.error("\n\n[Engine] Failed to persist liquidation", dbErr);
+            }
           }
         }
       }
@@ -542,6 +555,8 @@ export class Engine {
         message: "Order Created",
         orderId,
         order,
+        userBal: this.userBalances[userId],
+        openOrders: this.openOrders[userId],
       },
     };
   }
@@ -628,26 +643,28 @@ export class Engine {
 
     this.publishUserStateChanged(userId);
 
-    const persistTrade = async () => {
-      await db.transaction(async (tx) => {
-        await tx.insert(schema.existingTrades).values(closedOrder);
-        await tx
-          .update(schema.users)
-          .set({
-            balance: newUserBal.balance,
-            decimal: newUserBal.decimal,
-          })
-          .where(eq(schema.users.id as any, userId) as any);
-      });
-    };
+    if (!userId.startsWith("guest:")) {
+      const persistTrade = async () => {
+        await db.transaction(async (tx) => {
+          await tx.insert(schema.existingTrades).values(closedOrder);
+          await tx
+            .update(schema.users)
+            .set({
+              balance: newUserBal.balance,
+              decimal: newUserBal.decimal,
+            })
+            .where(eq(schema.users.id as any, userId) as any);
+        });
+      };
 
-    this.commitWithRetry(persistTrade, 3).catch((dbErr: unknown) => {
-      const raw = dbErr instanceof Error ? dbErr.message : String(dbErr ?? "");
-      const isDuplicateKey = raw.includes("23505") || /unique|duplicate/i.test(raw);
-      if (!isDuplicateKey) {
-        console.error("\n\n[CRITICAL ERROR] Engine Failed to persist trade close entirely after retries. Data out of sync!", dbErr);
-      }
-    });
+      this.commitWithRetry(persistTrade, 3).catch((dbErr: unknown) => {
+        const raw = dbErr instanceof Error ? dbErr.message : String(dbErr ?? "");
+        const isDuplicateKey = raw.includes("23505") || /unique|duplicate/i.test(raw);
+        if (!isDuplicateKey) {
+          console.error("\n\n[CRITICAL ERROR] Engine Failed to persist trade close entirely after retries. Data out of sync!", dbErr);
+        }
+      });
+    }
 
     return {
       type: "trade-close-ack",
@@ -656,6 +673,7 @@ export class Engine {
         message: "Order Closed",
         orderId,
         userBal: newUserBal,
+        openOrders: this.openOrders[userId],
       },
     };
   }
@@ -716,6 +734,17 @@ export class Engine {
       reqId: msg.reqId,
       payload: { trades },
     };
+  }
+
+  private cleanupStaleGuests(): void {
+    for (const uid of Object.keys(this.userBalances)) {
+      if (!uid.startsWith("guest:")) continue;
+      const orders = this.openOrders[uid];
+      if (!orders || orders.length === 0) {
+        delete this.userBalances[uid];
+        delete this.openOrders[uid];
+      }
+    }
   }
 
   private async commitWithRetry(

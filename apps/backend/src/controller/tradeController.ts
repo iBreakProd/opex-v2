@@ -76,7 +76,13 @@ export const openTradeController = async (req: Request, res: Response) => {
       return;
     }
     try {
-      const parsed = JSON.parse(response) as { order?: unknown; orderId?: string; message?: string };
+      const parsed = JSON.parse(response) as {
+        order?: unknown;
+        orderId?: string;
+        message?: string;
+        userBal?: unknown;
+        openOrders?: unknown;
+      };
       const { order, orderId, message } = parsed;
       if (order === undefined || orderId === undefined) {
         res
@@ -85,18 +91,21 @@ export const openTradeController = async (req: Request, res: Response) => {
         return;
       }
 
-      let openOrders: unknown = undefined;
-      let usdBalance: unknown = undefined;
-      try {
-        const [ordersResult, balResult] = await Promise.all([
-          fetchOpenOrders(userId),
-          fetchUsdBalance(userId),
-        ]);
-        openOrders = ordersResult;
-        usdBalance = balResult;
-      } catch (stateErr) {
-        console.error("\n\n[Backend] Failed to refresh state after trade", stateErr);
-        logTradeFailure("open.state-refresh", stateErr);
+      let openOrders: unknown = parsed.openOrders;
+      let usdBalance: unknown = parsed.userBal;
+
+      if (openOrders === undefined || usdBalance === undefined) {
+        try {
+          const [ordersResult, balResult] = await Promise.all([
+            openOrders === undefined ? fetchOpenOrders(userId) : Promise.resolve(openOrders),
+            usdBalance === undefined ? fetchUsdBalance(userId) : Promise.resolve(usdBalance),
+          ]);
+          openOrders = ordersResult;
+          usdBalance = balResult;
+        } catch (stateErr) {
+          console.error("\n\n[Backend] Failed to refresh state after trade", stateErr);
+          logTradeFailure("open.state-refresh", stateErr);
+        }
       }
 
       res.json({ message: "trade executed", order, orderId, openOrders, usdBalance });
@@ -157,6 +166,7 @@ export const closeTradeController = async (req: Request, res: Response) => {
     const response = await responseLoopObj.waitForResponse(reqId);
 
     let engineUsdBalance: unknown = undefined;
+    let engineOpenOrders: unknown = undefined;
     let engineMessage: string | undefined = undefined;
     if (typeof response === "string") {
       try {
@@ -164,8 +174,10 @@ export const closeTradeController = async (req: Request, res: Response) => {
           userBal?: unknown;
           orderId?: string;
           message?: string;
+          openOrders?: unknown;
         };
         engineUsdBalance = parsed.userBal;
+        engineOpenOrders = parsed.openOrders;
         engineMessage = parsed.message;
       } catch {
         engineUsdBalance = undefined;
@@ -177,21 +189,20 @@ export const closeTradeController = async (req: Request, res: Response) => {
       return;
     }
 
-    let openOrders: unknown = undefined;
+    let openOrders: unknown = engineOpenOrders;
     let usdBalance: unknown = engineUsdBalance;
-    try {
-      if (!usdBalance) {
+
+    if (openOrders === undefined || usdBalance === undefined) {
+      try {
         const [ordersResult, balResult] = await Promise.all([
-          fetchOpenOrders(userId),
-          fetchUsdBalance(userId),
+          openOrders === undefined ? fetchOpenOrders(userId) : Promise.resolve(openOrders),
+          usdBalance === undefined ? fetchUsdBalance(userId) : Promise.resolve(usdBalance),
         ]);
         openOrders = ordersResult;
         usdBalance = balResult;
-      } else {
-        openOrders = await fetchOpenOrders(userId);
+      } catch (stateErr) {
+        logTradeFailure("close.state-refresh", stateErr);
       }
-    } catch (stateErr) {
-      logTradeFailure("close.state-refresh", stateErr);
     }
 
     res.json({ message: "Trade Closed", openOrders, usdBalance });
@@ -227,6 +238,12 @@ export const closeTradeController = async (req: Request, res: Response) => {
 
 export const fetchClosedTrades = async (req: Request, res: Response) => {
   const userId = (req as unknown as { userId: string }).userId;
+
+  if (userId.startsWith("guest:")) {
+    res.json({ trades: [] });
+    return;
+  }
+
   try {
     const trades = await db
       .select()

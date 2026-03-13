@@ -5,15 +5,16 @@ import {
   fetchOpenTrades,
   openTradeController,
 } from "../controller/tradeController";
-import { authMiddleware } from "../middleware/authMiddleware";
+import { guestAwareAuthMiddleware } from "../middleware/guestMiddleware";
+import { guestTradeLimiter } from "../middleware/guestRateLimiter";
 import { asyncHandler } from "../middleware/errorHandler";
 
 const tradeRouter: Router = Router();
 
-tradeRouter.use(authMiddleware);
-tradeRouter.post("/open", asyncHandler(openTradeController));
+tradeRouter.use(guestAwareAuthMiddleware);
+tradeRouter.post("/open", guestTradeLimiter, asyncHandler(openTradeController));
 tradeRouter.get("/open", asyncHandler(fetchOpenTrades));
-tradeRouter.post("/close", asyncHandler(closeTradeController));
+tradeRouter.post("/close", guestTradeLimiter, asyncHandler(closeTradeController));
 tradeRouter.get("/closed", asyncHandler(fetchClosedTrades));
 
 export default tradeRouter;

@@ -19,10 +19,10 @@ const routes = [
   { path: "/", element: <Landing /> },
   { path: "/docs", element: <Docs /> },
   { path: "/login", element: <Login /> },
+  { path: "/trade", element: <Trade /> },
   {
     element: <ProtectedRoute />,
     children: [
-      { path: "/trade", element: <Trade /> },
       { path: "/past-orders", element: <PastOrders /> }
     ],
   },

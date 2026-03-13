@@ -72,9 +72,9 @@ export default function Landing() {
                   OPEN_ACCOUNT
                   <ArrowRight className="w-4 h-4" />
                 </button>
-                <button onClick={() => navigate("/login")} className="px-8 py-5 bg-background-light text-text-main font-bold text-lg font-mono-retro !border-2 !border-text-main shadow-brutal hover:shadow-brutal-hover hover:translate-x-[2px] hover:translate-y-[2px] transition-all flex items-center justify-center gap-3">
+                <button onClick={() => navigate("/trade")} className="px-8 py-5 bg-background-light text-text-main font-bold text-lg font-mono-retro !border-2 !border-text-main shadow-brutal hover:shadow-brutal-hover hover:translate-x-[2px] hover:translate-y-[2px] transition-all flex items-center justify-center gap-3">
                   <Terminal className="w-5 h-5" />
-                  GET_STARTED
+                  TRY_DEMO
                 </button>
               </div>
             </div>

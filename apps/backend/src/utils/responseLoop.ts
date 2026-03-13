@@ -76,11 +76,18 @@ export class ResponseLoop {
                 ? (JSON.parse(raw as string) as {
                     order?: unknown;
                     orderId?: string;
+                    userBal?: unknown;
+                    openOrders?: unknown;
                   })
                 : null;
               if (parsed?.order !== undefined && parsed?.orderId !== undefined) {
                 this.safeSettle(gotId, (e) =>
-                  e.resolve(JSON.stringify({ order: parsed.order, orderId: parsed.orderId }))
+                  e.resolve(JSON.stringify({
+                    order: parsed.order,
+                    orderId: parsed.orderId,
+                    userBal: parsed.userBal,
+                    openOrders: parsed.openOrders,
+                  }))
                 );
               } else {
                 this.safeSettle(gotId, (e) => e.reject("Invalid response shape"));
@@ -97,6 +104,7 @@ export class ResponseLoop {
                 ? (JSON.parse(raw as string) as {
                     userBal?: unknown;
                     orderId?: string;
+                    openOrders?: unknown;
                   })
                 : null;
               if (parsed !== null && parsed !== undefined) {
@@ -105,6 +113,7 @@ export class ResponseLoop {
                     JSON.stringify({
                       userBal: parsed.userBal,
                       orderId: parsed.orderId,
+                      openOrders: parsed.openOrders,
                     })
                   )
                 );

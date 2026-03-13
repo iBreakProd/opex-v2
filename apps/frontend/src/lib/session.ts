@@ -7,6 +7,8 @@ type SessionState = {
   setAuthenticated: (v: boolean) => void;
   userId: string | null;
   setUserId: (v: string | null) => void;
+  isGuest: boolean;
+  setIsGuest: (v: boolean) => void;
 };
 
 export const useSessionStore = create<SessionState>((set) => ({
@@ -14,6 +16,8 @@ export const useSessionStore = create<SessionState>((set) => ({
   setAuthenticated: (v) => set({ isAuthenticated: v }),
   userId: null,
   setUserId: (v) => set({ userId: v }),
+  isGuest: false,
+  setIsGuest: (v) => set({ isGuest: v }),
 }));
 
 export function useSessionProbe() {
